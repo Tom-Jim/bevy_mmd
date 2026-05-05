@@ -2,3 +2,5 @@
 /assets/MMD
 AlternateCode.rs
 .ropeproject
+**/*.rs.bk
+Cargo.lock
