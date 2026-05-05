@@ -1,6 +1,0 @@
-/target
-/assets
-AlternateCode.rs
-.ropeproject
-**/*.rs.bk
-Cargo.lock
