@@ -1,0 +1,638 @@
+═══ [1] Header ═══
+  version=V20  encode=Utf16Le  additional_uv=1
+Header {
+    magic: "PMX ",
+    version: V20,
+    length: 8,
+    encode: Utf16Le,
+    additional_uv: 1,
+    s_vertex_index: U16,
+    s_texture_index: I8,
+    s_material_index: I8,
+    s_bone_index: I16,
+    s_morph_index: I8,
+    s_rigid_body_index: I16,
+}
+
+═══ [2] ModelInfo ═══
+  name=星穹铁道—爻光  name_en=星穹铁道—爻光
+  comment:
+允许改造，优化骨骼和刚体，重制UV
+
+===================
+请勿二次配布
+
+请勿用于18禁作品，极端宗教宣传，血腥恐怖猎奇作品，人身攻击等
+
+请勿用于商业用途
+
+他人使用本模型所造成的一切不良后果，不由模型改造者与miHoYo承担，请向使用者追究全部责任
+
+模型编辑：流云景
+
+模型版权所属miHoYo
+
+═══ [3] Vertices (34056) ═══
+  字段: position(绑定姿态世界坐标cm) norm(法线) uv(纹理坐标)
+  蒙皮类型: BDEF1(单骨骼) BDEF2(2骨骼线性) BDEF4(4骨骼线性)
+           SDEF(球面变形) QDEF(双四元数,PMX2.1)
+  [    0] pos=(0.241,20.051,0.233) norm=(-0.040,-0.035,-0.999) uv=(0.557,0.135) weight="BDEF1(b=16)"
+  [    1] pos=(0.419,19.832,0.234) norm=(-0.040,-0.035,-0.999) uv=(0.680,0.135) weight="BDEF1(b=16)"
+  [    2] pos=(0.131,19.593,0.253) norm=(-0.040,-0.035,-0.999) uv=(0.680,0.323) weight="BDEF1(b=16)"
+  [    3] pos=(-0.053,19.818,0.253) norm=(-0.040,-0.035,-0.999) uv=(0.554,0.323) weight="BDEF1(b=16)"
+  [    4] pos=(-0.110,20.060,-0.328) norm=(-0.038,-0.037,-0.999) uv=(0.365,0.664) weight="BDEF1(b=16)"
+  ... (只显示前5条)
+
+═══ [4] Faces (50374 三角形) ═══
+  每个Face含3个顶点索引，逆时针为正面
+  [    0] v0=21620 v1=21622 v2=21621
+  [    1] v0=21623 v1=21625 v2=21624
+  [    2] v0=21623 v1=21624 v2=21626
+  [    3] v0=21627 v1=21629 v2=21628
+  [    4] v0=21630 v1=21632 v2=21631
+
+═══ [5] Textures (13) ═══
+  相对PMX文件目录的路径，\ 需转为 /
+  [  0] 颜.png
+  [  1] toon3.png
+  [  2] 颜赤.tga
+  [  3] toon4.png
+  [  4] 衣.png
+  [  5] 2.bmp
+  [  6] SP0d_20190820_005614.bmp
+  [  7] 衣2.png
+  [  8] 衣2N.png
+  [  9] 衣N.png
+  [ 10] 髪.png
+  [ 11] bq.png
+  [ 12] 黑.jpg
+
+═══ [6] Materials (45) ═══
+  diffuse:漫反射RGBA  specular:高光RGB×光泽度  ambient:环境光RGB
+  draw_mode:渲染标志  texture_index:纹理索引(-1=无)
+  sphere_mode:球面贴图(Mul/Add/Sub)  toon_mode:卡通贴图
+  num_face_vertices:覆盖的顶点索引数(÷3=三角面数)
+  [  0] 「顏」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.50,0.00,0.00,0.70)×0.62  tex=0  faces=2263
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(1)
+  [  1] 「顏+」 diffuse=(1.00,1.00,1.00,0.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.50,0.00,0.00,0.70)×0.62  tex=2  faces=2263
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(1)
+  [  2] 「眉睫」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=0  faces=538
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(3)
+  [  3] 「口」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=0  faces=396
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(1)
+  [  4] 「舌」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=0  faces=200
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(1)
+  [  5] 「齒」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=0  faces=224
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(3)
+  [  6] 「白目」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=0  faces=393
+       draw_mode=(empty)  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(-1)
+  [  7] 「目」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=0  faces=120
+       draw_mode=(empty)  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(-1)
+  [  8] 「目光」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=0  faces=36
+       draw_mode=(empty)  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(-1)
+  [  9] 「衣1」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=4  faces=1870
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 5, kind: Add })  toon=Separate(3)
+  [ 10] 「衣2」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=4  faces=1370
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 5, kind: Add })  toon=Separate(3)
+  [ 11] 「裙银饰」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=4  faces=2186
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 6, kind: Add })  toon=Separate(3)
+  [ 12] 「裙擺」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=4  faces=1590
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 5, kind: Add })  toon=Separate(3)
+  [ 13] 「裙擺+」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,1.00)×1.03  tex=4  faces=1662
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW  sphere=Some(SphereMode { index: 5, kind: Add })  toon=Separate(3)
+  [ 14] 「衣1+」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=4  faces=1870
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(-1)
+  [ 15] 「毛肩」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=7  faces=3668
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 5, kind: Add })  toon=Separate(3)
+  [ 16] 「腿金飾」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=7  faces=248
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 5, kind: Add })  toon=Separate(3)
+  [ 17] 「手」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=4  faces=384
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(1)
+  [ 18] 「肌」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.50,0.00,0.00,0.70)×0.62  tex=4  faces=4032
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(1)
+  [ 19] 「肌2」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=4  faces=90
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(1)
+  [ 20] 「足」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.50,0.00,0.00,0.70)×0.62  tex=7  faces=1925
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(1)
+  [ 21] 「足1」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=7  faces=578
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(1)
+  [ 22] 「足2」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=7  faces=379
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(1)
+  [ 23] 「腕」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.50,0.00,0.00,0.70)×0.62  tex=4  faces=40
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(1)
+  [ 24] 「內著+」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=8  faces=578
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(3)
+  [ 25] 「披肩帶+」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.50,0.00,0.00,0.70)×0.62  tex=9  faces=40
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(3)
+  [ 26] 「手银饰+」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=9  faces=187
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 6, kind: Add })  toon=Separate(3)
+  [ 27] 「手套+」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=9  faces=197
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 5, kind: Add })  toon=Separate(3)
+  [ 28] 「上衣边+」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=9  faces=90
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 5, kind: Add })  toon=Separate(3)
+  [ 29] 「足金屬+」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=8  faces=379
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 6, kind: Add })  toon=Separate(3)
+  [ 30] 「腕银饰」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=4  faces=1364
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 6, kind: Add })  toon=Separate(3)
+  [ 31] 「鞋」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=7  faces=690
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 5, kind: Add })  toon=Separate(3)
+  [ 32] 「髪」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=10  faces=8880
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 5, kind: Add })  toon=Separate(3)
+  [ 33] 「腕金屬」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=4  faces=632
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 6, kind: Add })  toon=Separate(3)
+  [ 34] 「辮金飾」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=7  faces=640
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 6, kind: Add })  toon=Separate(3)
+  [ 35] 「項鏈」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=7  faces=2616
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 6, kind: Add })  toon=Separate(3)
+  [ 36] 「耳環」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=7  faces=620
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 6, kind: Add })  toon=Separate(3)
+  [ 37] 「耳環流苏」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=7  faces=314
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 5, kind: Add })  toon=Separate(3)
+  [ 38] 「裙擺金屬」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=7  faces=568
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 6, kind: Add })  toon=Separate(3)
+  [ 39] 「指甲」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=4  faces=396
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 5, kind: Add })  toon=Separate(3)
+  [ 40] 「手银饰2」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=4  faces=324
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(-1)
+  [ 41] 「髪羽」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=4  faces=855
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW | HAS_EDGE  sphere=Some(SphereMode { index: 5, kind: Add })  toon=Separate(3)
+  [ 42] 「髪羽+」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=4  faces=855
+       draw_mode=GROUND_SHADOW | DRAW_SHADOW | RECEIVE_SHADOW  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(-1)
+  [ 43] 「biaoq」 diffuse=(1.00,1.00,1.00,1.00) spec=(0.00,0.00,0.00)×5.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,1.00)×0.00  tex=11  faces=1774
+       draw_mode=(empty)  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(-1)
+  [ 44] 「目影」 diffuse=(1.00,1.00,1.00,0.30) spec=(0.00,0.00,0.00)×50.0
+       ambient=(0.50,0.50,0.50) edge=(0.00,0.00,0.00,0.70)×0.62  tex=12  faces=50
+       draw_mode=(empty)  sphere=Some(SphereMode { index: -1, kind: Add })  toon=Separate(-1)
+
+═══ [7] Bones (422) ═══
+  position:绑定姿态世界坐标  parent:父骨骼索引(-1=根)
+  deform_depth:变形优先级(小=先算)  ik_info:IK约束
+  fixed_axis:固定旋转轴  inherits:继承其他骨骼变换比例
+  [  0] 「操作中心」 pos=(0.000,0.000,0.000) parent=-1 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [  1] 「全ての親」 pos=(0.000,0.000,0.000) parent=-1 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [  2] 「センター」 pos=(0.000,8.405,0.000) parent=1 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [  3] 「グルーブ」 pos=(0.000,8.615,0.000) parent=2 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [  4] 「腰」 pos=(0.000,12.596,0.264) parent=3 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [  5] 「右足IK親」 pos=(-0.883,0.000,0.404) parent=1 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [  6] 「右足ＩＫ」 pos=(-0.883,1.496,0.404) parent=5 depth=1 IK:IK→84 iter=40 limit_angle=2.000rad links=2 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [  7] 「右つま先ＩＫ」 pos=(-0.878,0.216,-1.502) parent=6 depth=1 IK:IK→85 iter=3 limit_angle=0.314rad links=1 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [  8] 「左足IK親」 pos=(0.883,0.000,0.404) parent=1 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [  9] 「左足ＩＫ」 pos=(0.883,1.496,0.404) parent=8 depth=1 IK:IK→89 iter=40 limit_angle=2.000rad links=2 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 10] 「左つま先ＩＫ」 pos=(0.878,0.216,-1.502) parent=9 depth=1 IK:IK→90 iter=3 limit_angle=0.314rad links=1 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 11] 「下半身」 pos=(0.000,13.222,-0.415) parent=4 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 12] 「上半身」 pos=(-0.000,13.291,-0.416) parent=4 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 13] 「上半身1」 pos=(-0.000,14.128,-0.543) parent=12 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 14] 「上半身2」 pos=(-0.000,14.818,-0.573) parent=13 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 15] 「首」 pos=(0.000,17.106,0.189) parent=14 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 16] 「頭」 pos=(0.000,18.061,-0.006) parent=15 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 17] 「右肩P」 pos=(-0.207,16.720,-0.082) parent=14 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 18] 「右肩」 pos=(-0.207,16.720,-0.082) parent=17 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 19] 「右肩C」 pos=(-1.270,16.516,0.135) parent=18 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(17, -1.0) }
+  [ 20] 「右肩+」 pos=(-0.207,16.720,-0.082) parent=14 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(18, 0.7) }
+  [ 21] 「右肩+2」 pos=(-0.207,16.720,-0.082) parent=14 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(18, 0.5) }
+  [ 22] 「右腕」 pos=(-1.270,16.516,0.135) parent=19 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 23] 「右腕捩」 pos=(-2.605,15.372,0.176) parent=22 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 24] 「右腕捩1」 pos=(-1.982,15.906,0.157) parent=22 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(23, 0.25) }
+  [ 25] 「右腕捩2」 pos=(-2.427,15.524,0.171) parent=22 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(23, 0.5) }
+  [ 26] 「右腕捩3」 pos=(-2.872,15.143,0.185) parent=22 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(23, 0.75) }
+  [ 27] 「右ひじ」 pos=(-3.496,14.609,0.231) parent=23 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 28] 「右手捩」 pos=(-4.619,13.653,0.202) parent=27 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 29] 「右手捩1」 pos=(-4.111,14.086,0.215) parent=27 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(28, 0.25) }
+  [ 30] 「右手捩2」 pos=(-4.501,13.753,0.205) parent=27 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(28, 0.5) }
+  [ 31] 「右手捩3」 pos=(-4.892,13.421,0.195) parent=27 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(28, 0.75) }
+  [ 32] 「右手首」 pos=(-5.368,13.016,0.182) parent=28 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 33] 「右ダミー」 pos=(-5.569,12.501,0.182) parent=32 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 34] 「右中指１」 pos=(-6.108,12.376,0.177) parent=32 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 35] 「右中指２」 pos=(-6.438,12.013,0.184) parent=34 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 36] 「右中指３」 pos=(-6.627,11.794,0.182) parent=35 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 37] 「右親指０」 pos=(-5.432,12.795,-0.077) parent=32 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 38] 「右親指１」 pos=(-5.663,12.380,-0.269) parent=37 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 39] 「右親指２」 pos=(-5.797,12.129,-0.368) parent=38 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 40] 「右人指１」 pos=(-6.100,12.370,-0.046) parent=32 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 41] 「右人指２」 pos=(-6.390,12.023,-0.061) parent=40 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 42] 「右人指３」 pos=(-6.548,11.842,-0.069) parent=41 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 43] 「右薬指１」 pos=(-6.046,12.384,0.396) parent=32 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 44] 「右薬指２」 pos=(-6.357,12.035,0.423) parent=43 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 45] 「右薬指３」 pos=(-6.562,11.790,0.427) parent=44 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 46] 「右小指１」 pos=(-5.948,12.359,0.578) parent=32 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 47] 「右小指２」 pos=(-6.197,12.063,0.621) parent=46 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 48] 「右小指３」 pos=(-6.372,11.884,0.641) parent=47 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 49] 「左肩P」 pos=(0.207,16.720,-0.082) parent=14 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 50] 「左肩」 pos=(0.207,16.720,-0.082) parent=49 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 51] 「左肩C」 pos=(1.270,16.516,0.135) parent=50 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(49, -1.0) }
+  [ 52] 「左肩+」 pos=(0.207,16.720,-0.082) parent=14 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(50, 0.7) }
+  [ 53] 「左肩+2」 pos=(0.207,16.720,-0.082) parent=14 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(50, 0.6) }
+  [ 54] 「左腕」 pos=(1.270,16.516,0.135) parent=51 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 55] 「左腕捩」 pos=(2.605,15.372,0.167) parent=54 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 56] 「左腕捩1」 pos=(1.982,15.906,0.152) parent=54 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(55, 0.25) }
+  [ 57] 「左腕捩2」 pos=(2.427,15.524,0.162) parent=54 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(55, 0.5) }
+  [ 58] 「左腕捩3」 pos=(2.872,15.143,0.173) parent=54 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(55, 0.75) }
+  [ 59] 「左ひじ」 pos=(3.496,14.609,0.231) parent=55 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 60] 「左手捩」 pos=(4.619,13.653,0.202) parent=59 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 61] 「左手捩1」 pos=(4.095,14.099,0.215) parent=59 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(60, 0.25) }
+  [ 62] 「左手捩2」 pos=(4.469,13.781,0.206) parent=59 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(60, 0.5) }
+  [ 63] 「左手捩3」 pos=(4.844,13.462,0.196) parent=59 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(60, 0.75) }
+  [ 64] 「左手首」 pos=(5.368,13.016,0.182) parent=60 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 65] 「左ダミー」 pos=(5.569,12.501,0.182) parent=64 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 66] 「左中指１」 pos=(6.108,12.376,0.177) parent=64 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 67] 「左中指２」 pos=(6.438,12.013,0.184) parent=66 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 68] 「左中指３」 pos=(6.627,11.794,0.182) parent=67 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 69] 「左親指０」 pos=(5.432,12.795,-0.077) parent=64 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 70] 「左親指１」 pos=(5.663,12.380,-0.269) parent=69 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 71] 「左親指２」 pos=(5.797,12.129,-0.368) parent=70 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 72] 「左人指１」 pos=(6.100,12.370,-0.046) parent=64 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 73] 「左人指２」 pos=(6.390,12.023,-0.061) parent=72 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 74] 「左人指３」 pos=(6.548,11.842,-0.069) parent=73 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 75] 「左薬指１」 pos=(6.046,12.384,0.396) parent=64 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 76] 「左薬指２」 pos=(6.357,12.035,0.423) parent=75 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 77] 「左薬指３」 pos=(6.562,11.790,0.427) parent=76 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 78] 「左小指１」 pos=(5.948,12.359,0.578) parent=64 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 79] 「左小指２」 pos=(6.197,12.063,0.621) parent=78 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 80] 「左小指３」 pos=(6.372,11.884,0.641) parent=79 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 81] 「腰キャンセル右」 pos=(-0.881,12.179,-0.366) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(4, -1.0) }
+  [ 82] 「右足」 pos=(-0.881,12.179,-0.366) parent=81 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 83] 「右ひざ」 pos=(-0.881,6.925,-0.122) parent=82 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 84] 「右足首」 pos=(-0.883,1.496,0.404) parent=83 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 85] 「右つま先」 pos=(-0.878,0.216,-1.502) parent=84 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 86] 「腰キャンセル左」 pos=(0.881,12.179,-0.366) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(4, -1.0) }
+  [ 87] 「左足」 pos=(0.881,12.179,-0.366) parent=86 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 88] 「左ひざ」 pos=(0.881,6.925,-0.122) parent=87 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 89] 「左足首」 pos=(0.883,1.496,0.404) parent=88 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 90] 「左つま先」 pos=(0.878,0.216,-1.502) parent=89 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 91] 「右目」 pos=(-0.317,18.747,-0.473) parent=16 depth=2 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(95, 1.0) }
+  [ 92] 「右目先」 pos=(-0.468,18.734,-0.822) parent=91 depth=2 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(91, -0.7) }
+  [ 93] 「左目」 pos=(0.317,18.747,-0.473) parent=16 depth=2 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(95, 1.0) }
+  [ 94] 「左目先」 pos=(0.468,18.734,-0.822) parent=93 depth=2 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(93, -0.7) }
+  [ 95] 「両目」 pos=(0.000,21.341,-0.374) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 96] 「両目先」 pos=(-0.000,21.339,-1.216) parent=95 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 97] 「tongue_01」 pos=(-0.000,18.069,-0.654) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 98] 「tongue_02」 pos=(-0.000,18.068,-0.712) parent=97 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [ 99] 「tongue_03」 pos=(-0.000,18.066,-0.769) parent=98 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [100] 「tongue_04」 pos=(-0.000,18.065,-0.827) parent=99 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [101] 「DownTeeth」 pos=(-0.000,18.047,-0.861) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [102] 「UpTeeth」 pos=(0.000,18.108,-0.865) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [103] 「右胸」 pos=(-0.615,15.670,-0.059) parent=14 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [104] 「右胸１」 pos=(-0.630,15.678,-0.624) parent=103 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [105] 「右胸２」 pos=(-0.630,15.678,-1.125) parent=104 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [106] 「左胸」 pos=(0.615,15.670,-0.059) parent=14 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [107] 「左胸１」 pos=(0.630,15.678,-0.624) parent=106 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [108] 「左胸２」 pos=(0.630,15.678,-1.125) parent=107 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [109] 「左手先」 pos=(5.823,12.539,0.182) parent=64 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [110] 「右手先」 pos=(-5.823,12.539,0.182) parent=32 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [111] 「左親指先」 pos=(5.927,11.831,-0.471) parent=71 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [112] 「左人差指先」 pos=(6.686,11.673,-0.069) parent=74 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [113] 「左中指先」 pos=(6.765,11.625,0.182) parent=68 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [114] 「左薬指先」 pos=(6.714,11.633,0.427) parent=77 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [115] 「左小指先」 pos=(6.524,11.728,0.641) parent=80 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [116] 「右親指先」 pos=(-5.927,11.831,-0.471) parent=39 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [117] 「右人差指先」 pos=(-6.686,11.673,-0.069) parent=42 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [118] 「右中指先」 pos=(-6.765,11.625,0.182) parent=36 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [119] 「右薬指先」 pos=(-6.714,11.633,0.427) parent=45 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [120] 「右小指先」 pos=(-6.524,11.728,0.641) parent=48 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [121] 「右镯铃1」 pos=(-5.098,12.911,-0.026) parent=28 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [122] 「右镯铃2」 pos=(-5.098,12.911,0.411) parent=28 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [123] 「右手镯」 pos=(-4.476,13.768,0.191) parent=28 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [124] 「髪辮1-1」 pos=(-0.917,18.837,0.989) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [125] 「髪辮1-2」 pos=(-0.917,17.935,1.156) parent=124 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [126] 「髪辮1-3」 pos=(-0.917,17.034,1.322) parent=125 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [127] 「髪辮1-4」 pos=(-0.916,15.910,1.570) parent=126 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [128] 「髪辮1-5」 pos=(-0.915,14.785,1.817) parent=127 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [129] 「髪辮1-6」 pos=(-1.050,13.590,2.140) parent=128 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [130] 「髪辮1-7」 pos=(-1.184,12.395,2.464) parent=129 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [131] 「髪辮1-8」 pos=(-1.521,11.144,2.959) parent=130 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [132] 「髪辮1-9」 pos=(-1.859,9.894,3.455) parent=131 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [133] 「髪辮1-10」 pos=(-2.424,8.599,3.959) parent=132 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [134] 「髪辮1-11」 pos=(-2.990,7.305,4.464) parent=133 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [135] 「髪辮11-1」 pos=(-2.101,10.319,3.580) parent=132 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [136] 「髪辮11-2」 pos=(-1.882,9.470,4.361) parent=135 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [137] 「髪辮12-1」 pos=(-2.230,10.177,3.430) parent=132 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [138] 「髪辮12-2」 pos=(-2.130,8.681,4.521) parent=137 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [139] 「髪辮13-1」 pos=(-1.521,13.678,2.034) parent=128 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [140] 「髪辮13-2」 pos=(-1.361,12.196,2.923) parent=139 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [141] 「髪辮2-1」 pos=(-0.654,14.816,2.041) parent=128 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [142] 「髪辮2-2」 pos=(-0.576,13.582,2.438) parent=141 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [143] 「髪辮2-3」 pos=(-0.498,12.348,2.836) parent=142 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [144] 「髪辮2-4」 pos=(-0.976,11.020,3.100) parent=143 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [145] 「髪辮2-5」 pos=(-1.453,9.693,3.365) parent=144 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [146] 「髪辮2-6」 pos=(-2.183,8.932,3.201) parent=145 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [147] 「髪辮2-7」 pos=(-2.913,8.170,3.038) parent=146 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [148] 「髪辮3-1」 pos=(-1.160,17.009,1.343) parent=125 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [149] 「髪辮3-2」 pos=(-1.398,16.117,1.500) parent=148 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [150] 「髪辮3-3」 pos=(-1.635,15.225,1.657) parent=149 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [151] 「髪辮3-4」 pos=(-1.900,14.342,1.807) parent=150 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [152] 「髪辮3-5」 pos=(-2.166,13.459,1.957) parent=151 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [153] 「髪辮3-6」 pos=(-2.598,11.912,2.196) parent=152 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [154] 「髪辮3-7」 pos=(-2.808,10.910,2.325) parent=153 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [155] 「髪辮3-8」 pos=(-2.937,9.846,2.422) parent=154 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [156] 「髪辮環」 pos=(-2.675,11.576,2.249) parent=153 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [157] 「小馬尾」 pos=(-1.071,18.761,0.884) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [158] 「小馬尾1」 pos=(-1.737,18.399,0.930) parent=157 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [159] 「小馬尾2」 pos=(-1.574,18.359,0.883) parent=157 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [160] 「小馬尾3」 pos=(-1.417,18.322,1.061) parent=157 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [161] 「小馬尾4」 pos=(-1.402,18.231,0.756) parent=157 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [162] 「小馬尾5」 pos=(-1.103,18.936,0.783) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [163] 「髪羽1-1」 pos=(-1.189,19.168,-0.149) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [164] 「髪羽1-2」 pos=(-1.105,19.918,-0.551) parent=163 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [165] 「髪羽1-3」 pos=(-0.832,20.265,-0.600) parent=164 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [166] 「髪羽1-4」 pos=(-0.559,20.612,-0.648) parent=165 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [167] 「髪羽1-5」 pos=(-0.352,20.985,-0.673) parent=166 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [168] 「髪羽1-6」 pos=(-0.146,21.359,-0.698) parent=167 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [169] 「髪羽11-1」 pos=(-0.923,19.860,-0.887) parent=164 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [170] 「髪羽12-1」 pos=(-1.269,19.520,-0.115) parent=163 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [171] 「髪羽12-2」 pos=(-1.448,19.685,-0.116) parent=170 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [172] 「髪羽12-3」 pos=(-1.497,19.925,-0.249) parent=171 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [173] 「髪羽12-4」 pos=(-1.409,19.999,-0.457) parent=172 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [174] 「髪羽12-5」 pos=(-1.353,20.222,-0.532) parent=173 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [175] 「後髪1-1」 pos=(0.146,18.593,0.963) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [176] 「後髪1-2」 pos=(0.146,18.264,0.963) parent=175 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [177] 「後髪2-1」 pos=(0.130,18.454,0.961) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [178] 「後髪2-2」 pos=(0.130,18.125,0.961) parent=177 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [179] 「耳墜1」 pos=(-0.745,18.341,-0.170) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [180] 「耳墜2」 pos=(-0.793,17.970,-0.167) parent=179 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [181] 「耳墜3」 pos=(-0.845,17.600,-0.161) parent=180 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [182] 「耳墜4」 pos=(-0.901,17.088,-0.292) parent=181 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [183] 「耳墜5」 pos=(-0.994,16.690,-0.634) parent=182 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [184] 「中劉海1-1」 pos=(-0.021,19.439,-1.283) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [185] 「中劉海1-2」 pos=(-0.021,19.027,-1.290) parent=184 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [186] 「中劉海1-3」 pos=(0.083,18.651,-1.199) parent=185 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [187] 「中劉海2-1」 pos=(-0.241,18.922,-1.247) parent=185 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [188] 「中劉海3-1」 pos=(0.251,18.948,-1.239) parent=185 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [189] 「左側髪」 pos=(0.797,19.548,-0.843) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [190] 「左側髪1-1」 pos=(0.922,18.907,-0.815) parent=189 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [191] 「左側髪1-2」 pos=(1.178,18.551,-0.619) parent=190 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [192] 「左側髪2-1」 pos=(1.078,19.064,-0.534) parent=189 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [193] 「左側髪2-2」 pos=(1.342,18.812,-0.332) parent=192 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [194] 「左側髪3-1」 pos=(1.217,19.552,-0.532) parent=189 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [195] 「左側髪4-1」 pos=(1.206,19.143,-0.225) parent=189 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [196] 「左側髪4-2」 pos=(1.319,18.877,0.009) parent=195 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [197] 「左劉海1-1」 pos=(0.551,19.025,-1.156) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [198] 「左劉海1-2」 pos=(0.790,18.643,-0.903) parent=197 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [199] 「左劉海11-1」 pos=(0.908,18.805,-0.966) parent=197 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [200] 「右側髪」 pos=(-0.777,19.518,-0.945) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [201] 「右側髪1-1」 pos=(-0.802,19.410,-1.154) parent=200 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [202] 「右側髪2-1」 pos=(-0.778,19.016,-0.969) parent=200 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [203] 「右側髪2-2」 pos=(-1.100,18.647,-0.605) parent=202 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [204] 「右側髪22-1」 pos=(-0.988,18.966,-0.917) parent=202 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [205] 「右側髪23-1」 pos=(-0.676,18.769,-1.030) parent=202 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [206] 「右側髪3-1」 pos=(-1.068,19.036,-0.569) parent=200 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [207] 「右側髪31-1」 pos=(-1.046,18.530,-0.370) parent=206 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [208] 「右側髪32-1」 pos=(-1.123,18.648,-0.136) parent=206 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [209] 「右側髪4-1」 pos=(-0.772,18.824,-0.789) parent=200 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [210] 「右側髪4-2」 pos=(-0.745,18.289,-0.735) parent=209 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [211] 「左劉海2-1」 pos=(0.565,19.471,-1.250) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [212] 「左劉海2-2」 pos=(0.620,18.945,-1.203) parent=211 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [213] 「左劉海3-1」 pos=(0.689,18.744,-0.943) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [214] 「左劉海3-2」 pos=(0.703,18.138,-0.844) parent=213 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [215] 「左側長髪1-1」 pos=(0.914,18.713,-0.381) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [216] 「左側長髪1-2」 pos=(0.917,18.211,-0.348) parent=215 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [217] 「左側長髪1-3」 pos=(0.918,17.709,-0.331) parent=216 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [218] 「左側長髪11-1」 pos=(1.018,18.050,-0.369) parent=216 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [219] 「髮飾尾1」 pos=(-0.530,19.131,1.255) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [220] 「髮飾尾2」 pos=(-0.623,18.846,1.238) parent=16 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [221] 「披肩親」 pos=(1.527,16.908,0.159) parent=54 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [222] 「披肩」 pos=(1.558,16.712,0.159) parent=221 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [223] 「披肩1-1」 pos=(2.753,16.466,-0.152) parent=222 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [224] 「披肩1-2」 pos=(2.999,15.808,0.236) parent=223 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [225] 「披肩11-1」 pos=(3.239,16.154,0.037) parent=223 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [226] 「披肩2-1」 pos=(2.042,16.649,-0.678) parent=222 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [227] 「披肩2-2」 pos=(2.180,15.749,-0.594) parent=226 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [228] 「披肩2-3」 pos=(2.058,14.864,-0.400) parent=227 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [229] 「披肩21-1」 pos=(2.669,16.113,-0.653) parent=226 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [230] 「披肩墜1-1」 pos=(2.126,16.381,-1.050) parent=226 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [231] 「披肩墜1-2」 pos=(2.176,15.803,-1.052) parent=230 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [232] 「披肩3-1」 pos=(2.064,16.592,0.859) parent=222 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [233] 「披肩3-2」 pos=(2.172,15.653,0.815) parent=232 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [234] 「披肩3-3」 pos=(2.279,14.714,0.772) parent=233 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [235] 「披肩3-4」 pos=(2.411,13.777,0.728) parent=234 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [236] 「披肩3-5」 pos=(2.542,12.841,0.684) parent=235 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [237] 「披肩3-6」 pos=(2.952,11.990,0.643) parent=236 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [238] 「披肩3-7」 pos=(3.289,11.131,0.602) parent=237 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [239] 「披肩31-1」 pos=(2.958,16.182,1.054) parent=232 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [240] 「披肩32-1」 pos=(2.595,16.585,1.169) parent=232 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [241] 「披肩4-1」 pos=(1.342,17.439,0.199) parent=222 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [242] 「披肩5-1」 pos=(1.679,17.582,-0.006) parent=222 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [243] 「披肩6-1」 pos=(2.513,17.482,-0.000) parent=222 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [244] 「披肩7-1」 pos=(2.319,17.424,0.469) parent=222 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [245] 「披肩8-1」 pos=(2.933,16.854,0.338) parent=222 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [246] 「左項鏈1」 pos=(0.637,17.238,0.176) parent=52 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [247] 「左項鏈2」 pos=(0.669,16.805,-0.504) parent=53 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [248] 「右項鏈1」 pos=(-0.637,17.238,0.176) parent=20 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [249] 「右項鏈2」 pos=(-0.669,16.805,-0.504) parent=21 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [250] 「中項鏈」 pos=(0.000,16.729,-0.624) parent=14 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [251] 「後項鏈」 pos=(0.000,17.276,0.569) parent=14 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [252] 「項鏈墜1-1」 pos=(0.000,15.998,-1.568) parent=250 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [253] 「項鏈墜1-2」 pos=(-0.002,15.686,-1.718) parent=252 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [254] 「項鏈墜1-3」 pos=(-0.002,15.600,-1.719) parent=253 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [255] 「項鏈墜2-1」 pos=(-0.456,16.254,-1.222) parent=250 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [256] 「項鏈墜2-2」 pos=(-0.469,15.968,-1.629) parent=255 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [257] 「項鏈墜2-3」 pos=(-0.471,15.899,-1.679) parent=256 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [258] 「項鏈墜3-1」 pos=(0.456,16.254,-1.222) parent=250 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [259] 「項鏈墜3-2」 pos=(0.469,15.968,-1.629) parent=258 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [260] 「項鏈墜3-3」 pos=(0.471,15.899,-1.679) parent=259 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [261] 「裙_0_0」 pos=(0.000,13.456,-1.356) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [262] 「裙_0_1」 pos=(0.622,13.456,-1.275) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [263] 「裙_0_2」 pos=(1.149,13.456,-1.046) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [264] 「裙_0_3」 pos=(1.501,13.456,-0.702) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [265] 「裙_0_4」 pos=(1.625,13.456,-0.297) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [266] 「裙_0_5」 pos=(1.501,13.456,0.108) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [267] 「裙_0_6」 pos=(1.149,13.456,0.452) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [268] 「裙_0_7」 pos=(0.622,13.456,0.681) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [269] 「裙_0_8」 pos=(-0.000,13.456,0.762) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [270] 「裙_0_9」 pos=(-0.622,13.456,0.681) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [271] 「裙_0_10」 pos=(-1.149,13.456,0.452) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [272] 「裙_0_11」 pos=(-1.501,13.456,0.108) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [273] 「裙_0_12」 pos=(-1.625,13.456,-0.297) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [274] 「裙_0_13」 pos=(-1.501,13.456,-0.702) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [275] 「裙_0_14」 pos=(-1.149,13.456,-1.046) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [276] 「裙_0_15」 pos=(-0.622,13.456,-1.275) parent=11 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [277] 「裙_1_0」 pos=(0.000,12.798,-1.315) parent=261 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [278] 「裙_1_1」 pos=(0.664,12.798,-1.233) parent=262 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [279] 「裙_1_2」 pos=(1.227,12.798,-0.998) parent=263 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [280] 「裙_1_3」 pos=(1.603,12.798,-0.647) parent=264 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [281] 「裙_1_4」 pos=(1.736,12.798,-0.232) parent=265 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [282] 「裙_1_5」 pos=(1.603,12.798,0.179) parent=266 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [283] 「裙_1_6」 pos=(1.227,12.798,0.528) parent=267 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [284] 「裙_1_7」 pos=(0.664,12.798,0.762) parent=268 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [285] 「裙_1_8」 pos=(-0.000,12.798,0.844) parent=269 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [286] 「裙_1_9」 pos=(-0.664,12.798,0.762) parent=270 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [287] 「裙_1_10」 pos=(-1.227,12.798,0.528) parent=271 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [288] 「裙_1_11」 pos=(-1.603,12.798,0.179) parent=272 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [289] 「裙_1_12」 pos=(-1.736,12.798,-0.232) parent=273 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [290] 「裙_1_13」 pos=(-1.603,12.798,-0.647) parent=274 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [291] 「裙_1_14」 pos=(-1.227,12.798,-0.998) parent=275 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [292] 「裙_1_15」 pos=(-0.664,12.798,-1.233) parent=276 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [293] 「裙_2_0」 pos=(0.000,12.072,-1.284) parent=277 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [294] 「裙_2_1」 pos=(0.679,12.072,-1.200) parent=278 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [295] 「裙_2_2」 pos=(1.255,12.072,-0.959) parent=279 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [296] 「裙_2_3」 pos=(1.640,12.072,-0.600) parent=280 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [297] 「裙_2_4」 pos=(1.775,12.072,-0.175) parent=281 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [298] 「裙_2_5」 pos=(1.640,12.072,0.238) parent=282 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [299] 「裙_2_6」 pos=(1.255,12.072,0.589) parent=283 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [300] 「裙_2_7」 pos=(0.679,12.072,0.824) parent=284 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [301] 「裙_2_8」 pos=(-0.000,12.072,0.906) parent=285 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [302] 「裙_2_9」 pos=(-0.679,12.072,0.824) parent=286 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [303] 「裙_2_10」 pos=(-1.255,12.072,0.589) parent=287 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [304] 「裙_2_11」 pos=(-1.640,12.072,0.238) parent=288 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [305] 「裙_2_12」 pos=(-1.775,12.072,-0.175) parent=289 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [306] 「裙_2_13」 pos=(-1.640,12.072,-0.600) parent=290 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [307] 「裙_2_14」 pos=(-1.255,12.072,-0.959) parent=291 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [308] 「裙_2_15」 pos=(-0.679,12.072,-1.200) parent=292 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [309] 「裙_3_0」 pos=(0.000,11.278,-1.265) parent=293 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [310] 「裙_3_1」 pos=(0.677,11.278,-1.178) parent=294 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [311] 「裙_3_2」 pos=(1.250,11.278,-0.931) parent=295 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [312] 「裙_3_3」 pos=(1.634,11.278,-0.561) parent=296 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [313] 「裙_3_4」 pos=(1.768,11.278,-0.124) parent=297 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [314] 「裙_3_5」 pos=(1.634,11.278,0.290) parent=298 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [315] 「裙_3_6」 pos=(1.250,11.278,0.642) parent=299 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [316] 「裙_3_7」 pos=(0.677,11.278,0.877) parent=300 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [317] 「裙_3_8」 pos=(-0.000,11.278,0.959) parent=301 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [318] 「裙_3_9」 pos=(-0.677,11.278,0.877) parent=302 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [319] 「裙_3_10」 pos=(-1.250,11.278,0.642) parent=303 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [320] 「裙_3_11」 pos=(-1.634,11.278,0.290) parent=304 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [321] 「裙_3_12」 pos=(-1.768,11.278,-0.124) parent=305 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [322] 「裙_3_13」 pos=(-1.634,11.278,-0.561) parent=306 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [323] 「裙_3_14」 pos=(-1.250,11.278,-0.931) parent=307 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [324] 「裙_3_15」 pos=(-0.677,11.278,-1.178) parent=308 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [325] 「裙_4_0」 pos=(0.000,10.413,-1.259) parent=309 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [326] 「裙_4_1」 pos=(0.667,10.413,-1.169) parent=310 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [327] 「裙_4_2」 pos=(1.232,10.413,-0.913) parent=311 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [328] 「裙_4_3」 pos=(1.610,10.413,-0.529) parent=312 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [329] 「裙_4_4」 pos=(1.742,10.413,-0.077) parent=313 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [330] 「裙_4_5」 pos=(1.610,10.413,0.340) parent=314 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [331] 「裙_4_6」 pos=(1.232,10.413,0.693) parent=315 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [332] 「裙_4_7」 pos=(0.667,10.413,0.930) parent=316 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [333] 「裙_4_8」 pos=(-0.000,10.413,1.012) parent=317 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [334] 「裙_4_9」 pos=(-0.667,10.413,0.930) parent=318 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [335] 「裙_4_10」 pos=(-1.232,10.413,0.693) parent=319 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [336] 「裙_4_11」 pos=(-1.610,10.413,0.340) parent=320 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [337] 「裙_4_12」 pos=(-1.742,10.413,-0.077) parent=321 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [338] 「裙_4_13」 pos=(-1.610,10.413,-0.529) parent=322 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [339] 「裙_4_14」 pos=(-1.232,10.413,-0.913) parent=323 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [340] 「裙_4_15」 pos=(-0.667,10.413,-1.169) parent=324 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [341] 「裙_5_0」 pos=(0.000,9.478,-1.271) parent=325 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [342] 「裙_5_1」 pos=(0.659,9.478,-1.176) parent=326 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [343] 「裙_5_2」 pos=(1.218,9.478,-0.907) parent=327 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [344] 「裙_5_3」 pos=(1.591,9.478,-0.505) parent=328 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [345] 「裙_5_4」 pos=(1.722,9.478,-0.031) parent=329 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [346] 「裙_5_5」 pos=(1.591,9.478,0.392) parent=330 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [347] 「裙_5_6」 pos=(1.218,9.478,0.751) parent=331 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [348] 「裙_5_7」 pos=(0.659,9.478,0.991) parent=332 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [349] 「裙_5_8」 pos=(-0.000,9.478,1.075) parent=333 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [350] 「裙_5_9」 pos=(-0.659,9.478,0.991) parent=334 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [351] 「裙_5_10」 pos=(-1.218,9.478,0.751) parent=335 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [352] 「裙_5_11」 pos=(-1.591,9.478,0.392) parent=336 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [353] 「裙_5_12」 pos=(-1.722,9.478,-0.031) parent=337 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [354] 「裙_5_15」 pos=(-0.659,9.478,-1.176) parent=340 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [355] 「裙_6_0」 pos=(0.000,8.471,-1.301) parent=341 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [356] 「裙_6_1」 pos=(0.663,8.471,-1.201) parent=342 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [357] 「裙_6_2」 pos=(1.225,8.471,-0.915) parent=343 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [358] 「裙_6_3」 pos=(1.512,8.471,-0.488) parent=344 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [359] 「裙_6_5」 pos=(1.601,8.471,0.452) parent=346 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [360] 「裙_6_6」 pos=(1.225,8.471,0.822) parent=347 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [361] 「裙_6_7」 pos=(0.663,8.471,1.069) parent=348 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [362] 「裙_6_8」 pos=(-0.000,8.471,1.156) parent=349 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [363] 「裙_6_9」 pos=(-0.663,8.471,1.069) parent=350 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [364] 「裙_6_10」 pos=(-1.225,8.471,0.822) parent=351 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [365] 「裙_6_11」 pos=(-1.601,8.471,0.452) parent=352 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [366] 「裙_7_0」 pos=(0.000,7.391,-1.353) parent=355 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [367] 「裙_7_1」 pos=(0.689,7.391,-1.245) parent=356 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [368] 「裙_7_2」 pos=(1.274,7.391,-0.938) parent=357 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [369] 「裙_7_3」 pos=(1.459,7.391,-0.477) parent=358 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [370] 「裙_7_6」 pos=(1.274,7.391,0.914) parent=360 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [371] 「裙_7_7」 pos=(0.689,7.391,1.173) parent=361 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [372] 「裙_7_8」 pos=(-0.000,7.391,1.265) parent=362 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [373] 「裙_7_9」 pos=(-0.689,7.391,1.173) parent=363 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [374] 「裙_7_10」 pos=(-1.274,7.391,0.914) parent=364 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [375] 「裙_8_0」 pos=(0.000,6.236,-1.430) parent=366 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [376] 「裙_8_1」 pos=(0.747,6.236,-1.312) parent=367 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [377] 「裙_8_2」 pos=(1.381,6.236,-0.976) parent=368 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [378] 「裙_8_3」 pos=(1.598,6.236,-0.473) parent=369 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [379] 「裙_8_7」 pos=(0.747,6.236,1.313) parent=371 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [380] 「裙_8_8」 pos=(-0.000,6.236,1.411) parent=372 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [381] 「裙_8_9」 pos=(-0.747,6.236,1.313) parent=373 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [382] 「裙_9_0」 pos=(0.000,5.007,-1.602) parent=375 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [383] 「裙_9_1」 pos=(0.847,5.007,-1.471) parent=376 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [384] 「裙_9_2」 pos=(1.564,5.007,-1.100) parent=377 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [385] 「裙_9_3」 pos=(2.044,5.007,-0.543) parent=378 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [386] 「裙_9_7」 pos=(0.672,5.007,1.496) parent=380 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [387] 「裙_9_8」 pos=(-0.000,5.007,1.604) parent=380 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [388] 「裙_9_9」 pos=(-0.672,5.007,1.496) parent=380 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [389] 「裙_9_10」 pos=(-1.208,5.007,1.188) parent=380 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [390] 「裙_10_1」 pos=(0.997,3.700,-1.608) parent=383 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [391] 「裙_10_2」 pos=(1.843,3.700,-1.192) parent=384 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [392] 「裙_10_3」 pos=(2.745,3.700,-0.570) parent=385 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [393] 「裙_10_7」 pos=(0.997,3.700,1.937) parent=386 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [394] 「裙_10_8」 pos=(-0.000,3.700,2.209) parent=387 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [395] 「裙_10_9」 pos=(-0.997,3.700,2.087) parent=388 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [396] 「裙_10_10」 pos=(-1.641,3.700,1.590) parent=389 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [397] 「裙_11_1」 pos=(1.209,2.317,-2.107) parent=390 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [398] 「裙_11_2」 pos=(2.234,2.317,-1.638) parent=391 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [399] 「裙_11_3」 pos=(3.835,2.834,-0.494) parent=392 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [400] 「裙_11_7」 pos=(1.209,2.317,2.420) parent=393 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [401] 「裙_11_8」 pos=(-0.000,2.317,3.149) parent=394 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [402] 「裙_11_9」 pos=(-1.209,2.317,3.010) parent=395 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [403] 「裙_11_10」 pos=(-2.234,2.317,2.023) parent=396 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [404] 「裙_12_2」 pos=(2.757,1.439,-2.076) parent=398 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [405] 「裙_12_7」 pos=(1.492,0.855,2.965) parent=400 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [406] 「裙_12_8」 pos=(-0.000,0.855,4.948) parent=401 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [407] 「裙_12_9」 pos=(-1.492,0.855,4.786) parent=402 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [408] 「裙_12_10」 pos=(-3.470,0.855,2.503) parent=403 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [409] 「裙側鏈1」 pos=(1.765,12.105,-0.420) parent=280 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [410] 「裙側鏈2」 pos=(1.960,11.430,-0.351) parent=409 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [411] 「裙側鏈3」 pos=(2.038,10.253,-0.317) parent=410 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [412] 「裙側鏈4」 pos=(2.117,9.076,-0.284) parent=411 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [413] 「裙側鏈5」 pos=(2.265,7.906,-0.245) parent=412 depth=0 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [414] 「右足D」 pos=(-0.881,12.179,-0.366) parent=81 depth=1 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(82, 1.0) }
+  [415] 「右ひざD」 pos=(-0.881,6.925,-0.122) parent=414 depth=1 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(83, 1.0) }
+  [416] 「右足首D」 pos=(-0.883,1.496,0.404) parent=415 depth=1 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(84, 1.0) }
+  [417] 「右足先EX」 pos=(-0.880,0.642,-0.867) parent=416 depth=1 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+  [418] 「左足D」 pos=(0.881,12.179,-0.366) parent=86 depth=1 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(87, 1.0) }
+  [419] 「左ひざD」 pos=(0.881,6.925,-0.122) parent=418 depth=1 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(88, 1.0) }
+  [420] 「左足首D」 pos=(0.883,1.496,0.404) parent=419 depth=1 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: Rotate(89, 1.0) }
+  [421] 「左足先EX」 pos=(0.880,0.642,-0.867) parent=420 depth=1 IK:无 INHERITS:BoneInherits { inherit_local: false, rotate_and_translate: None }
+
+═══ PMX 写入完毕 ═══

@@ -1,0 +1,17 @@
+[package]
+name = "bevy3Danimation"
+version = "0.1.0"
+edition = "2024"
+[dependencies]
+bevy = { version = "0.18.1", features = ["hotpatching","jpeg", "png","tga","bmp","hdr"] }
+crossbeam-channel="0.5.15"
+PMXUtil="0.9.0"
+bevy_panorbit_camera="0.34.0"
+vmd_parser="0.1.0"
+avian3d = "0.6.1"
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+incremental = true      # 确保开启增量编译
+strip = "debuginfo"     # 自动剥离 debug info (Mac/Linux)
+opt-level = 3
+debug = 0     # 关闭 debug 信息
