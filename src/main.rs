@@ -18,8 +18,13 @@ use bevy::shader::ShaderRef;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
 mod vmd_motion;
+use std::ffi::c_void;
 use vmd_motion::VmdMotionClip;
-
+unsafe extern "C" {
+    fn jolt_init();
+    fn jolt_math_test(x: f32, y: f32) -> f32;
+    fn create_box_body(x: f32, y: f32, z: f32) -> *mut c_void;
+}
 // ─────────────────────────────────────────────────────────────────────────────
 // 路径常量
 // ─────────────────────────────────────────────────────────────────────────────
@@ -30,6 +35,14 @@ const GLOBAL_EMISSIVE_STRENGTH: f32 = 0.5;
 const PMX_LOG_PATH: &str = "src/pmx_info.txt";
 const VMD_LOG_PATH: &str = "src/vmd_info.txt";
 
+#[derive(Component)]
+struct JoltBody {
+    ptr: *mut c_void,
+    size: Vec3,
+}
+// 重点：手动标记线程安全，因为 Jolt 的 Body 指针在初始化后是线程安全的句柄
+unsafe impl Send for JoltBody {}
+unsafe impl Sync for JoltBody {}
 // ═════════════════════════════════════════════════════════════════════════════
 // 数据结构
 // ═════════════════════════════════════════════════════════════════════════════
@@ -226,6 +239,17 @@ impl bevy::pbr::Material for PmxMaterial {
 // main
 // ═════════════════════════════════════════════════════════════════════════════
 fn main() {
+    println!("Rust: Starting engine...");
+
+    // 调用 C 接口必须放在 unsafe 块里
+    unsafe {
+        // 1. 让 Zig 初始化 Jolt Physics
+        jolt_init();
+
+        // 2. 测试传参和返回值
+        let result = jolt_math_test(10.001, 31.00314);
+        println!("Rust: Got math result from Zig/Jolt: {}", result);
+    }
     App::new()
         .add_plugins(DefaultPlugins.set(AssetPlugin {
             file_path: "assets".into(),
@@ -237,6 +261,7 @@ fn main() {
         .add_systems(Startup, setup)
         // 两阶段：先计算骨骼+蒙皮，再把结果写入各 Mesh
         .add_systems(Update, (skin_update_system, apply_skin_to_meshes).chain())
+        .add_systems(Update, draw_debug_bodies)
         .run();
 }
 
@@ -249,6 +274,17 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PmxMaterial>>,
 ) {
+    unsafe {
+        let size = Vec3::new(10.0, 1.0, 10.0); // 比如创建一个大地板
+        let body_ptr = create_box_body(size.x, size.y, size.z);
+        commands.spawn((
+            JoltBody {
+                ptr: body_ptr,
+                size,
+            },
+            Transform::from_xyz(0.0, -1.0, 0.0), // 放在脚下
+        ));
+    }
     // ── 打开 PMX 文件 ─────────────────────────────────────────────────────────
     let pmx_path = if Path::new(PMX_FILE_PATH).is_absolute() {
         PMX_FILE_PATH.to_string()
@@ -411,7 +447,15 @@ fn setup(
         writeln!(
             pmx_log,
             "  [{:>3}] 「{}」 pos=({:.3},{:.3},{:.3}) parent={} depth={} IK:{} INHERITS:{}",
-            i, b.name, b.position[0], b.position[1], b.position[2], b.parent, b.deform_depth, ik, inherits
+            i,
+            b.name,
+            b.position[0],
+            b.position[1],
+            b.position[2],
+            b.parent,
+            b.deform_depth,
+            ik,
+            inherits
         )
         .ok();
     }
@@ -464,15 +508,23 @@ fn setup(
         .enumerate()
         .map(|(i, b)| {
             name_to_index.insert(b.name.clone(), i);
-        let append_rotation = match b.inherits.rotate_and_translate {
-            PMXUtil::types::RotateAndTranslateInherits::Rotate(idx, weight) => {
-                if idx >= 0 { Some((idx as usize, weight)) } else { None }
-            }
-            PMXUtil::types::RotateAndTranslateInherits::Both(idx, weight) => {
-                if idx >= 0 { Some((idx as usize, weight)) } else { None }
-            }
-            _ => None,
-        };
+            let append_rotation = match b.inherits.rotate_and_translate {
+                PMXUtil::types::RotateAndTranslateInherits::Rotate(idx, weight) => {
+                    if idx >= 0 {
+                        Some((idx as usize, weight))
+                    } else {
+                        None
+                    }
+                }
+                PMXUtil::types::RotateAndTranslateInherits::Both(idx, weight) => {
+                    if idx >= 0 {
+                        Some((idx as usize, weight))
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            };
 
             PmxBoneData {
                 name: b.name.clone(),
@@ -593,7 +645,14 @@ fn setup(
         })
         .collect();
     let init_normals: Vec<[f32; 3]> = (0..vcount)
-        .map(|i| Vec3::new(vertices[i].norm[0], vertices[i].norm[1], -vertices[i].norm[2]).to_array())
+        .map(|i| {
+            Vec3::new(
+                vertices[i].norm[0],
+                vertices[i].norm[1],
+                -vertices[i].norm[2],
+            )
+            .to_array()
+        })
         .collect();
     let init_uvs: Vec<[f32; 2]> = vertices.iter().map(|v| v.uv).collect();
 
@@ -745,7 +804,12 @@ fn skin_update_system(
     for (i, bone) in skel.bones.iter().enumerate() {
         if let Some(pose) = pb.clip.sample_bone_at_seconds(&bone.name, t, fps) {
             local_t[i] = Vec3::new(pose.translation.x, pose.translation.y, -pose.translation.z);
-            local_r[i] = Quat::from_xyzw(-pose.rotation.x, -pose.rotation.y, pose.rotation.z, pose.rotation.w);
+            local_r[i] = Quat::from_xyzw(
+                -pose.rotation.x,
+                -pose.rotation.y,
+                pose.rotation.z,
+                pose.rotation.w,
+            );
         }
     }
 
@@ -764,7 +828,7 @@ fn skin_update_system(
     for &i in &order {
         let bone = &skel.bones[i];
         let p = bone.parent;
-        
+
         let mut final_local_r = local_r[i];
         if let Some((app_idx, weight)) = bone.append_rotation {
             if app_idx < n {
@@ -772,7 +836,7 @@ fn skin_update_system(
                 final_local_r = (final_local_r * app_r).normalize();
             }
         }
-        
+
         // 为了让后续 IK 等能获取更新后的总局部旋转，保存回去
         local_r[i] = final_local_r;
 
@@ -989,12 +1053,9 @@ fn build_ik_constraints(bones: &[Bone]) -> Vec<IkConstraint> {
             }
             links.push(IkLinkData {
                 bone_index: li,
-                angle_limit: link.angle_limit.map(|(mn, mx)| {
-                     
-                     
-                     
-                    (-Vec3::from(mx), -Vec3::from(mn))
-                }),
+                angle_limit: link
+                    .angle_limit
+                    .map(|(mn, mx)| (-Vec3::from(mx), -Vec3::from(mn))),
             });
         }
         if links.is_empty() {
@@ -1102,7 +1163,17 @@ fn euler_xyz_to_quat(e: Vec3) -> Quat {
 // ═════════════════════════════════════════════════════════════════════════════
 // 辅助函数
 // ═════════════════════════════════════════════════════════════════════════════
-
+// 渲染 Debug 形状
+fn draw_debug_bodies(mut gizmos: Gizmos, query: Query<(&Transform, &JoltBody)>) {
+    for (transform, body) in query.iter() {
+        // 1. 修正拼写 cuboid
+        // 2. 适配新版颜色 API (Srgba)
+        gizmos.cube(
+            Transform::from_translation(transform.translation).with_scale(body.size * 2.0),
+            bevy::color::palettes::css::LIME, // 或者使用 Color::srgb(0.0, 1.0, 0.0)
+        );
+    }
+}
 /// 将 PMX VertexWeight 枚举统一为 ([i32;4], [f32;4])
 fn convert_vertex_weight(w: &VertexWeight) -> ([i32; 4], [f32; 4]) {
     match w {

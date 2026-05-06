@@ -9,7 +9,6 @@ crossbeam-channel = "0.5.15"
 PMXUtil = "0.9.0"
 bevy_panorbit_camera = "0.34.0"
 vmd_parser = "0.1.0"
-bevy_rapier3d = { version = "0.25.0", features = ["simd-stable", "debug-render-3d"] }
 
 [profile.dev]
 opt-level = 1
