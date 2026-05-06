@@ -455,7 +455,7 @@ impl VmdMotionClip {
     // 采样接口
     // ─────────────────────────────────────────
 
-        pub fn sample_morph_at_frame(&self, morph_name: &str, frame: f32) -> Option<f32> {
+    pub fn sample_morph_at_frame(&self, morph_name: &str, frame: f32) -> Option<f32> {
         let keys = self.morphs.get(morph_name)?;
         if keys.is_empty() {
             return None;
@@ -481,12 +481,7 @@ impl VmdMotionClip {
         None
     }
 
-    pub fn sample_morph_at_seconds(
-        &self,
-        morph_name: &str,
-        seconds: f32,
-        fps: f32,
-    ) -> Option<f32> {
+    pub fn sample_morph_at_seconds(&self, morph_name: &str, seconds: f32, fps: f32) -> Option<f32> {
         self.sample_morph_at_frame(morph_name, seconds.max(0.0) * fps.max(1.0))
     }
 
