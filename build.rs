@@ -5,8 +5,11 @@ use std::process::Command;
 fn main() {
     println!("cargo:rerun-if-changed=src/api.zig");
     println!("cargo:rerun-if-changed=build.zig");
-
-    // 2. 运行 Zig 编译
+    // 监控整个 build.zig 文件
+    println!("cargo:rerun-if-changed=build.zig");
+    // 监控整个存放 Zig 和 C++ 源码的目录 (假设都在 src 目录下)
+    println!("cargo:rerun-if-changed=src");
+    // 运行 Zig 编译
     let status = Command::new("zig")
         .args([
             "build",
