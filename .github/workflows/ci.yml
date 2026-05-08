@@ -27,7 +27,7 @@ jobs:
       - name: Install Zig
         uses: mlugg/setup-zig@v1
         with:
-          version: master 
+          version: 0.16.0 
 
       # Bevy 在 Linux 下编译需要依赖系统级的音频和图形库
       - name: Install Linux Dependencies
