@@ -239,7 +239,7 @@ extern "C" {
 
                     // 计算出该顶点在软体局部空间中的目标动画坐标
                     Vec3 target_pos = inv_transform * Vec3(all_pos[i*3], all_pos[i*3+1], all_pos[i*3+2]);
-
+                    
                     // 分支 1：如果是第一帧，或者是 mInvMass == 0 的顶点 (钉死在躯干上的锚点)
                     if (is_first_frame || vertices[v_idx].mInvMass == 0.0f) {
                         // 【发根锚点】：钉死在骨骼动画位置
@@ -252,11 +252,11 @@ extern "C" {
                         // 直接修改位置不会产生任何多余的动能，因此绝对不会反弹和果冻抖动。
                         Vec3 diff = target_pos - vertices[v_idx].mPosition;
                         
-                        // 0.03f 代表每帧向动画网格温柔靠拢 10%，不产生任何物理速度积蓄
-                        vertices[v_idx].mPosition += diff * 0.1f;
+                        // 代表每帧向动画网格温柔靠拢，不产生任何物理速度积蓄
+                        vertices[v_idx].mPosition += diff * 0.03f;
 
                         // 丝绸的空气阻力极大（飘逸感），通过强力衰减速度让布料像在空气中缓慢下坠，消除残留抖动
-                        vertices[v_idx].mVelocity *= 0.2f; 
+                        vertices[v_idx].mVelocity *= 0.95f; 
                     }
                 }
             }

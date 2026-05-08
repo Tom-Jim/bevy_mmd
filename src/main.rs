@@ -57,7 +57,8 @@ unsafe extern "C" {
 // ─────────────────────────────────────────────────────────────────────────────
 // 路径常量
 // ─────────────────────────────────────────────────────────────────────────────
-const PMX_FILE_PATH: &str = "模型/星穹铁道—长夜月_by_崩坏：星穹铁道_b2f53bd03831e138dd0c72f0782bc894/星穹铁道—长夜月2.pmx";
+const PMX_FILE_PATH: &str =
+    "模型/星穹铁道—长夜月_by_崩坏：星穹铁道_b2f53bd03831e138dd0c72f0782bc894/星穹铁道—长夜月2.pmx";
 const VMD_FILE_PATH: &str = "VMD/贝洛伯格第三节.vmd";
 const GLOBAL_EMISSIVE_STRENGTH: f32 = 0.5;
 const PMX_LOG_PATH: &str = "src/pmx_info.txt";
@@ -313,8 +314,8 @@ fn main() {
         .add_systems(
             Update,
             (
-                physics_update_system,
                 skin_update_system,
+                physics_update_system,
                 apply_skin_to_meshes,
             )
                 .chain(),
@@ -869,7 +870,25 @@ fn setup(
     }
 
     // 1. 圈定核心承重墙（无论如何都不会形变的根基）
-    let core_keywords = ["上半身", "下半身", "腰", "胸", "頭", "首", "肩"];
+    let core_keywords = [
+        "上半身",
+        "下半身",
+        "腰",
+        "胸",
+        "頭",
+        "首",
+        "肩",
+        "带_根",
+        "结_根",
+        "饰_根",
+        "裙_根",
+        "腕",
+        "肘",
+        "手",
+        "足",
+        "腿",
+        "膝",
+    ];
     let mut is_core = vec![false; bones.len()];
     for (i, b) in bones.iter().enumerate() {
         if core_keywords.iter().any(|&k| b.name.contains(k)) {
@@ -881,10 +900,31 @@ fn setup(
     // (例如 "裙_0" 连着 "下半身"，所以 "裙_0" 是锚点；但 "裙_1" 连着 "裙_0"，它自由下落！)
     let mut is_anchor = vec![false; bones.len()];
     for (i, b) in bones.iter().enumerate() {
+        // if is_core[i] {
+        //     is_anchor[i] = true;
+        // } else if b.parent >= 0 && is_core[b.parent as usize] {
+        //     is_anchor[i] = true;
+        // }
+        // 如果它本身就是核心骨骼（如：腰、头），直接钉死
         if is_core[i] {
             is_anchor[i] = true;
-        } else if b.parent >= 0 && is_core[b.parent as usize] {
-            is_anchor[i] = true;
+            continue;
+        }
+
+        // 向上溯源：检查它的父骨骼，或者爷爷骨骼是不是核心骨骼
+        // 头发通常是 1 层 (头 -> 头发1)
+        // 裙子通常是 2 层 (腰 -> 裙根 -> 裙1)
+        let mut current_parent = b.parent;
+        let mut depth = 1;
+
+        while current_parent >= 0 && depth <= 2 {
+            if is_core[current_parent as usize] {
+                is_anchor[i] = true;
+                break; // 找到了核心承重墙，当前骨骼设为锚点
+            }
+            // 继续往上找
+            current_parent = bones[current_parent as usize].parent;
+            depth += 1;
         }
     }
 
@@ -930,27 +970,53 @@ fn setup(
             sb_vertices.push(v.position[1]);
             sb_vertices.push(-v.position[2]);
 
+            // let (bi, bw) = convert_vertex_weight(&v.weight_type);
+            // let mut max_w = 0.0;
+            // let mut dominant_bone = -1;
+            // for k in 0..4 {
+            //     if bw[k] > max_w {
+            //         max_w = bw[k];
+            //         dominant_bone = bi[k];
+            //     }
+            // }
+
+            // // 只有主要受力骨骼属于【锚点骨骼】时，才会被钉在角色身上
+            // if dominant_bone >= 0
+            //     && (dominant_bone as usize) < is_anchor.len()
+            //     && is_anchor[dominant_bone as usize]
+            //     //&& max_w > 0.4
+            // {
+            //     sb_inv_masses.push(0.0);
+            //     root_sb_indices.push(current_sb_idx as i32);
+            //     root_pmx_indices.push(pmx_idx as usize);
+            // } else {
+            //     sb_inv_masses.push(1.0); // 剩下的绝对自由落体
+            // }
             let (bi, bw) = convert_vertex_weight(&v.weight_type);
-            let mut max_w = 0.0;
-            let mut dominant_bone = -1;
+            let mut is_anchored = false;
+
+            // 只要这个顶点受到任何【锚点骨骼】超过 15% 的影响，就把它死死钉在角色身上
             for k in 0..4 {
-                if bw[k] > max_w {
-                    max_w = bw[k];
-                    dominant_bone = bi[k];
+                let bone_idx = bi[k];
+                let weight = bw[k];
+                if bone_idx >= 0
+                    && (bone_idx as usize) < is_anchor.len()
+                    && is_anchor[bone_idx as usize]
+                {
+                    if weight > 0.15 {
+                        // 15% 的权重阈值
+                        is_anchored = true;
+                        break;
+                    }
                 }
             }
 
-            // 只有主要受力骨骼属于【锚点骨骼】时，才会被钉在角色身上
-            if dominant_bone >= 0
-                && (dominant_bone as usize) < is_anchor.len()
-                && is_anchor[dominant_bone as usize]
-                && max_w > 0.4
-            {
-                sb_inv_masses.push(0.0);
+            if is_anchored {
+                sb_inv_masses.push(0.0); // 钉死
                 root_sb_indices.push(current_sb_idx as i32);
                 root_pmx_indices.push(pmx_idx as usize);
             } else {
-                sb_inv_masses.push(1.0); // 剩下的绝对自由落体
+                sb_inv_masses.push(1.0); // 剩下的部分自由落体下垂
             }
         }
     }

@@ -9,20 +9,20 @@ fn main() {
     println!("cargo:rerun-if-changed=build.zig");
     // 监控整个存放 Zig 和 C++ 源码的目录 (假设都在 src 目录下)
     println!("cargo:rerun-if-changed=src");
+    let mut zig_args = vec![
+        "build",
+        if env::var("PROFILE").unwrap_or_default() == "release" {
+            "-Doptimize=ReleaseFast"
+        } else {
+            "-Doptimize=ReleaseFast"
+        },
+    ];
+    // 只有在 macOS 下，才强制指定 aarch64-macos
+    #[cfg(target_os = "macos")]
+    zig_args.push("-Dtarget=aarch64-macos.26.4");
     // 运行 Zig 编译
     let status = Command::new("zig")
-        .args([
-            "build",
-            &format!(
-                "-Doptimize={}",
-                if env::var("PROFILE").unwrap_or_default() == "release" {
-                    "ReleaseFast"
-                } else {
-                    "ReleaseFast"
-                }
-            ),
-            "-Dtarget=aarch64-macos.26.4",
-        ])
+        .args(&zig_args)
         .status()
         .expect("Failed to execute zig build.");
     assert!(status.success(), "Zig build failed!");
