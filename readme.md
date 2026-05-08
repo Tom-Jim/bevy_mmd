@@ -1,7 +1,17 @@
+# 🚧 [WIP] Bevy MMD: High-Performance Animation & Soft Body Physics
+# 🚧 [开发中] Bevy 3D 动画与软体物理播放器
 # Bevy 3D Animation & Soft Body Physics Player
 # Bevy 3D 动画与软体物理播放器
 
 [English](#english) | [中文](#中文)
+
+![Physics Demo](docs/physics_demo_wip.gif)
+> *Current physics state: Soft body welding and shape matching in action. Yes, the skirt still clips sometimes, we are fixing it!*
+
+> *当前物理状态：软体和动作可以运动，但是衣服崩溃下拉的问题仍需修复*
+
+### 🎯 Goal / 我们的愿景
+**To build the most performant, plug-and-play MMD rendering & physics middleware for the Bevy Engine using JoltPhysics.** We are moving away from traditional rigid-body proxy chains to true interconnected soft-body physics for skirts, hair, and clothing. **PRs are super welcome!**
 
 ---
 
