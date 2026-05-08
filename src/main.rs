@@ -19,11 +19,39 @@ use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
 mod vmd_motion;
 use std::ffi::c_void;
+use std::sync::atomic::AtomicPtr;
+static PHYSICS_SYSTEM_PTR: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 use vmd_motion::VmdMotionClip;
 unsafe extern "C" {
-    fn jolt_init();
+    fn jolt_init() -> *mut c_void;
     fn jolt_math_test(x: f32, y: f32) -> f32;
     fn create_box_body(x: f32, y: f32, z: f32) -> *mut c_void;
+
+    fn create_soft_body_from_mesh(
+        vertices: *const f32,
+        num_vertices: i32,
+        indices: *const i32,
+        num_indices: i32,
+        inv_masses: *const f32,
+        physics_system: *mut c_void,
+    ) -> *mut c_void;
+    fn get_soft_body_vertex_count(physics_system: *mut c_void, body_id: *mut c_void) -> i32;
+    fn get_soft_body_vertices(
+        physics_system: *mut c_void,
+        body_id: *mut c_void,
+        out_vertices: *mut f32,
+    );
+    fn step_physics(delta_time: f32);
+    // 【新增】：同步发根坐标的 C 接口
+    // 【修改声明】：加入 is_first_frame
+    fn update_soft_body_roots(
+        physics_system: *mut c_void,
+        body_id: *mut c_void,
+        all_pos: *const f32,
+        all_idx: *const i32,
+        count: i32,
+        is_first_frame: i32,
+    );
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // 路径常量
@@ -36,6 +64,15 @@ const PMX_LOG_PATH: &str = "src/pmx_info.txt";
 const VMD_LOG_PATH: &str = "src/vmd_info.txt";
 
 #[derive(Component)]
+struct JoltSoftBody {
+    ptr: *mut c_void,
+    num_vertices: usize,
+    indices: Vec<u32>,
+}
+unsafe impl Send for JoltSoftBody {}
+unsafe impl Sync for JoltSoftBody {}
+
+#[derive(Component)]
 struct JoltBody {
     ptr: *mut c_void,
     size: Vec3,
@@ -43,6 +80,17 @@ struct JoltBody {
 // 重点：手动标记线程安全，因为 Jolt 的 Body 指针在初始化后是线程安全的句柄
 unsafe impl Send for JoltBody {}
 unsafe impl Sync for JoltBody {}
+// 【新增】：用于保存头发数据的全局资源
+#[derive(Resource)]
+struct HairPhysicsData {
+    ptr: *mut c_void,
+    root_pmx_indices: Vec<usize>,
+    root_sb_indices: Vec<i32>,
+    all_pmx_indices: Vec<usize>, // <--- 新增：保存所有软体顶点的映射
+    is_initialized: bool,        // <--- 新增：记录是否已经做过初始全量传送
+}
+unsafe impl Send for HairPhysicsData {}
+unsafe impl Sync for HairPhysicsData {}
 // ═════════════════════════════════════════════════════════════════════════════
 // 数据结构
 // ═════════════════════════════════════════════════════════════════════════════
@@ -244,7 +292,8 @@ fn main() {
     // 调用 C 接口必须放在 unsafe 块里
     unsafe {
         // 1. 让 Zig 初始化 Jolt Physics
-        jolt_init();
+        let ptr = jolt_init();
+        PHYSICS_SYSTEM_PTR.store(ptr as *mut _, std::sync::atomic::Ordering::SeqCst);
 
         // 2. 测试传参和返回值
         let result = jolt_math_test(10.001, 31.00314);
@@ -260,8 +309,16 @@ fn main() {
         .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Startup, setup)
         // 两阶段：先计算骨骼+蒙皮，再把结果写入各 Mesh
-        .add_systems(Update, (skin_update_system, apply_skin_to_meshes).chain())
-        .add_systems(Update, draw_debug_bodies)
+        .add_systems(
+            Update,
+            (
+                physics_update_system,
+                skin_update_system,
+                apply_skin_to_meshes,
+            )
+                .chain(),
+        )
+        .add_systems(Update, (draw_debug_bodies, draw_soft_bodies))
         .run();
 }
 
@@ -284,6 +341,78 @@ fn setup(
             },
             Transform::from_xyz(0.0, -1.0, 0.0), // 放在脚下
         ));
+    }
+    // === 生成一个悬挂的旗帜软体 ===
+    let grid_size = 15; // 15x15 的网格
+    let width = 10.0;
+    let height = 10.0;
+    let offset = Vec3::new(10.0, 15.0, 0.0); // 放在角色旁边的高处
+
+    let mut flag_vertices = Vec::with_capacity(grid_size * grid_size * 3);
+    let mut flag_inv_masses = Vec::with_capacity(grid_size * grid_size);
+    let mut flag_indices = Vec::new();
+
+    // 1. 生成顶点和质量逆
+    for y in 0..grid_size {
+        for x in 0..grid_size {
+            // 计算当前点在网格中的局部坐标 (左上角为原点)
+            let px = (x as f32 / (grid_size - 1) as f32) * width;
+            let py = (y as f32 / (grid_size - 1) as f32) * height; // Y轴向下延伸
+
+            flag_vertices.push(offset.x + px);
+            flag_vertices.push(offset.y);
+            flag_vertices.push(offset.z + py);
+
+            // 【关键】：如果 x == 0 (最左侧那一列)，设为 0.0 固定；其他设为 1.0 自由移动
+            if y == 0 {
+                flag_inv_masses.push(0.0); // Kinematic 钉死在空中
+            } else {
+                flag_inv_masses.push(1.0); // Dynamic 随风飘动
+            }
+        }
+    }
+
+    // 2. 生成三角面索引 (构建网格)
+    for y in 0..(grid_size - 1) {
+        for x in 0..(grid_size - 1) {
+            let top_left = (y * grid_size + x) as u32;
+            let top_right = top_left + 1;
+            let bottom_left = ((y + 1) * grid_size + x) as u32;
+            let bottom_right = bottom_left + 1;
+
+            // 第一个三角形 (左上, 左下, 右上) - 逆时针
+            flag_indices.push(top_left);
+            flag_indices.push(bottom_left);
+            flag_indices.push(top_right);
+
+            // 第二个三角形 (右上, 左下, 右下) - 逆时针
+            flag_indices.push(top_right);
+            flag_indices.push(bottom_left);
+            flag_indices.push(bottom_right);
+        }
+    }
+
+    // 3. 传给 Jolt C API 生成物理对象
+    unsafe {
+        let physics_system =
+            PHYSICS_SYSTEM_PTR.load(std::sync::atomic::Ordering::SeqCst) as *mut c_void;
+        let flag_ptr = create_soft_body_from_mesh(
+            flag_vertices.as_ptr(),
+            (flag_vertices.len() / 3) as i32,
+            flag_indices.as_ptr() as *const i32,
+            flag_indices.len() as i32,
+            flag_inv_masses.as_ptr(),
+            physics_system,
+        );
+
+        if !flag_ptr.is_null() {
+            commands.spawn((JoltSoftBody {
+                ptr: flag_ptr,
+                num_vertices: flag_vertices.len() / 3,
+                indices: flag_indices,
+            },));
+            println!("成功生成旗帜软体！");
+        }
     }
     // ── 打开 PMX 文件 ─────────────────────────────────────────────────────────
     let pmx_path = if Path::new(PMX_FILE_PATH).is_absolute() {
@@ -346,6 +475,56 @@ fn setup(
 
     // [4] Faces
     let (faces, ns) = ns.read();
+
+    // // === Create Jolt Soft Body from PMX Mesh ===
+    // let mut sb_vertices = Vec::with_capacity(vertices.len() * 3);
+    // let mut sb_inv_masses = Vec::with_capacity(vertices.len());
+    // for v in vertices.iter() {
+    //     sb_vertices.push(v.position[0]);
+    //     sb_vertices.push(v.position[1]);
+    //     sb_vertices.push(-v.position[2]);
+
+    //     // 核心骨架部分的顶点设为 Kinematic (固定)，边缘（裙摆/头发）等偏远部分设为 Dynamic (摆动)
+    //     // 简单的启发式：高度 > 10.0 且 靠近中心 (xz半径 < 3.0) 的点作为固定点
+    //     let r = (v.position[0] * v.position[0] + v.position[2] * v.position[2]).sqrt();
+    //     if v.position[1] > 10.0 && r < 3.0 {
+    //         sb_inv_masses.push(0.0); // Kinematic
+    //     } else {
+    //         sb_inv_masses.push(1.0); // Dynamic
+    //     }
+    // }
+
+    // let mut sb_indices = Vec::with_capacity(faces.len() * 3);
+    // for f in faces.iter() {
+    //     sb_indices.push(f.vertices[0] as u32);
+    //     sb_indices.push(f.vertices[1] as u32);
+    //     sb_indices.push(f.vertices[2] as u32);
+    // }
+
+    // unsafe {
+    //     let physics_system = PHYSICS_SYSTEM_PTR.load(std::sync::atomic::Ordering::SeqCst) as *mut c_void; println!("physics_system in setup: {:?}", physics_system);
+    //     let sb_ptr = create_soft_body_from_mesh(
+    //         sb_vertices.as_ptr(),
+    //         (sb_vertices.len() / 3) as i32,
+    //         sb_indices.as_ptr() as *const i32,
+    //         sb_indices.len() as i32,
+    //         sb_inv_masses.as_ptr(),
+    //         physics_system
+    //     );
+
+    //     if !sb_ptr.is_null() {
+    //         commands.spawn((
+    //             JoltSoftBody {
+    //                 ptr: sb_ptr,
+    //                 num_vertices: sb_vertices.len() / 3,
+    //                 indices: sb_indices,
+    //             },
+    //             Transform::from_xyz(0.0, 0.0, 0.0)
+    //         ));
+    //         println!("Created PMX Soft Body with {} vertices and {} indices", sb_vertices.len() / 3, faces.len() * 3);
+    //     }
+    // }
+
     writeln!(pmx_log, "\n═══ [4] Faces ({} 三角形) ═══", faces.len()).ok();
     writeln!(pmx_log, "  每个Face含3个顶点索引，逆时针为正面").ok();
     for (i, f) in faces.iter().take(5).enumerate() {
@@ -633,6 +812,127 @@ fn setup(
     // ═════════════════════════════════════════════════════════════════════════
     let face_groups = group_faces_by_material(&faces, &materials_pmx);
 
+    // ═════════════════════════════════════════════════════════════════════════
+    // 【终极傻瓜锚点法】：只有直接长在躯干上的第一节骨骼，才是受力锚点！
+    // ═════════════════════════════════════════════════════════════════════════
+    let soft_keywords = [
+        "发", "髪", "毛", "裙", "衣", "披肩", "飾", "饰", "摆", "擺", "辫", "辮", "羽", "链", "鏈",
+        "biaoq", "带", "帶",
+    ];
+    let mut soft_mat_indices = Vec::new();
+    for (i, mat) in materials_pmx.iter().enumerate() {
+        if soft_keywords.iter().any(|&k| mat.name.contains(k)) {
+            soft_mat_indices.push(i);
+        }
+    }
+
+    // 1. 圈定核心承重墙（无论如何都不会形变的根基）
+    let core_keywords = ["上半身", "下半身", "腰", "胸", "頭", "首", "肩"];
+    let mut is_core = vec![false; bones.len()];
+    for (i, b) in bones.iter().enumerate() {
+        if core_keywords.iter().any(|&k| b.name.contains(k)) {
+            is_core[i] = true;
+        }
+    }
+
+    // 2. 精准定义锚点骨骼：核心骨骼本身，以及【直接连着核心骨骼的第一节软骨骼】
+    // (例如 "裙_0" 连着 "下半身"，所以 "裙_0" 是锚点；但 "裙_1" 连着 "裙_0"，它自由下落！)
+    let mut is_anchor = vec![false; bones.len()];
+    for (i, b) in bones.iter().enumerate() {
+        if is_core[i] {
+            is_anchor[i] = true;
+        } else if b.parent >= 0 && is_core[b.parent as usize] {
+            is_anchor[i] = true;
+        }
+    }
+
+    // 3. 构建网格
+    let mut soft_pmx_indices = std::collections::BTreeSet::new();
+    for &mat_idx in &soft_mat_indices {
+        for &idx in &face_groups[mat_idx].1 {
+            soft_pmx_indices.insert(idx);
+        }
+    }
+
+    let mut sb_vertices = Vec::new();
+    let mut sb_inv_masses = Vec::new();
+    let mut sb_indices = Vec::new();
+    let mut pmx_to_sb_map = std::collections::HashMap::new();
+    let mut root_sb_indices = Vec::new();
+    let mut root_pmx_indices = Vec::new();
+    let mut all_pmx_indices = Vec::new();
+
+    for &pmx_idx in &soft_pmx_indices {
+        let v = &vertices[pmx_idx as usize];
+        let current_sb_idx = (sb_vertices.len() / 3) as u32;
+        pmx_to_sb_map.insert(pmx_idx, current_sb_idx);
+        all_pmx_indices.push(pmx_idx as usize);
+
+        sb_vertices.push(v.position[0]);
+        sb_vertices.push(v.position[1]);
+        sb_vertices.push(-v.position[2]);
+
+        let (bi, bw) = convert_vertex_weight(&v.weight_type);
+        let mut max_w = 0.0;
+        let mut dominant_bone = -1;
+        for k in 0..4 {
+            if bw[k] > max_w {
+                max_w = bw[k];
+                dominant_bone = bi[k];
+            }
+        }
+
+        // 只有主要受力骨骼属于【锚点骨骼】时，才会被钉在角色身上
+        if dominant_bone >= 0 && is_anchor[dominant_bone as usize] && max_w > 0.4 {
+            sb_inv_masses.push(0.0);
+            root_sb_indices.push(current_sb_idx as i32);
+            root_pmx_indices.push(pmx_idx as usize);
+        } else {
+            sb_inv_masses.push(1.0); // 剩下的绝对自由落体
+        }
+    }
+
+    for &mat_idx in &soft_mat_indices {
+        for chunk in face_groups[mat_idx].1.chunks_exact(3) {
+            sb_indices.push(*pmx_to_sb_map.get(&chunk[0]).unwrap());
+            sb_indices.push(*pmx_to_sb_map.get(&chunk[1]).unwrap());
+            sb_indices.push(*pmx_to_sb_map.get(&chunk[2]).unwrap());
+        }
+    }
+
+    unsafe {
+        let physics_system =
+            PHYSICS_SYSTEM_PTR.load(std::sync::atomic::Ordering::SeqCst) as *mut c_void;
+        let soft_ptr = create_soft_body_from_mesh(
+            sb_vertices.as_ptr(),
+            (sb_vertices.len() / 3) as i32,
+            sb_indices.as_ptr() as *const i32,
+            sb_indices.len() as i32,
+            sb_inv_masses.as_ptr(),
+            physics_system,
+        );
+
+        if !soft_ptr.is_null() {
+            commands.spawn((JoltSoftBody {
+                ptr: soft_ptr,
+                num_vertices: sb_vertices.len() / 3,
+                indices: sb_indices,
+            },));
+
+            println!(
+                "布料最终解封！总顶点: {}, 精准钉死根节点: {}",
+                soft_pmx_indices.len(),
+                root_pmx_indices.len()
+            );
+            commands.insert_resource(HairPhysicsData {
+                ptr: soft_ptr,
+                root_pmx_indices,
+                root_sb_indices,
+                all_pmx_indices,
+                is_initialized: false,
+            });
+        }
+    }
     // 初始顶点数据（绑定姿态，第一帧蒙皮完成前先显示）
     let init_positions: Vec<[f32; 3]> = (0..vcount)
         .map(|i| {
@@ -773,6 +1073,7 @@ fn skin_update_system(
     mut playback: Option<ResMut<VmdPlayback>>,
     skeleton: Option<Res<PmxSkeleton>>,
     mut shared_skin: Option<ResMut<PmxSharedSkin>>,
+    mut hair_data: Option<ResMut<HairPhysicsData>>, // <--- 注意这里改成了 mut 和 ResMut
 ) {
     let (Some(mut pb), Some(skel), Some(mut skin)) =
         (playback.as_mut(), skeleton.as_ref(), shared_skin.as_mut())
@@ -984,8 +1285,63 @@ fn skin_update_system(
         new_nor[vi] = nor.normalize_or_zero().to_array();
     }
     // 将计算结果写回共享 Resource
-    skin.skinned_positions = new_pos;
+    skin.skinned_positions = new_pos.clone();
     skin.skinned_normals = new_nor;
+    // ═════════════════════════════════════════════════════════════════════════
+    // 【新增】：将发根或全量软体的最新世界坐标强制同步给物理引擎
+    // ═════════════════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════════════════
+    // 【终极防爆】：每帧全量传入蒙皮目标坐标，实施形状匹配与阻尼
+    // ═════════════════════════════════════════════════════════════════════════
+    if let Some(mut hair) = hair_data {
+        let just_looped = pb.time_sec <= time.delta_secs() + 0.001;
+        let is_first = if !hair.is_initialized || just_looped {
+            1
+        } else {
+            0
+        };
+
+        // 无论是不是第一帧，我们都把整个软体的“完美动画坐标”传给物理引擎
+        let mut all_positions = Vec::with_capacity(hair.all_pmx_indices.len() * 3);
+        let mut all_sb_indices = Vec::with_capacity(hair.all_pmx_indices.len());
+
+        for (sb_idx, &pmx_idx) in hair.all_pmx_indices.iter().enumerate() {
+            let pos = new_pos[pmx_idx];
+            all_positions.push(pos[0]);
+            all_positions.push(pos[1]);
+            all_positions.push(pos[2]);
+            all_sb_indices.push(sb_idx as i32);
+        }
+
+        unsafe {
+            let physics_system =
+                PHYSICS_SYSTEM_PTR.load(std::sync::atomic::Ordering::SeqCst) as *mut c_void;
+            update_soft_body_roots(
+                physics_system,
+                hair.ptr,
+                all_positions.as_ptr(),
+                all_sb_indices.as_ptr(),
+                all_sb_indices.len() as i32,
+                is_first, // 告诉 C++ 这次是要瞬移还是施加牵引力
+            );
+
+            // ═════════════════════════════════════════════════════════════════
+            // 【关键修复】：把物理引擎算好的悬垂坐标读回来，强制覆盖掉生硬的蒙皮！
+            // ═════════════════════════════════════════════════════════════════
+            let mut current_vertices = vec![0.0f32; hair.all_pmx_indices.len() * 3];
+            get_soft_body_vertices(physics_system, hair.ptr, current_vertices.as_mut_ptr());
+
+            for (sb_idx, &pmx_idx) in hair.all_pmx_indices.iter().enumerate() {
+                // 强制覆写 PmxSharedSkin 里的坐标，这样下一步 apply_skin_to_meshes 就会渲染物理布料
+                skin.skinned_positions[pmx_idx] = [
+                    current_vertices[sb_idx * 3],
+                    current_vertices[sb_idx * 3 + 1],
+                    current_vertices[sb_idx * 3 + 2],
+                ];
+            }
+        }
+        hair.is_initialized = true;
+    }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1163,6 +1519,55 @@ fn euler_xyz_to_quat(e: Vec3) -> Quat {
 // ═════════════════════════════════════════════════════════════════════════════
 // 辅助函数
 // ═════════════════════════════════════════════════════════════════════════════
+fn physics_update_system(time: Res<Time>) {
+    unsafe {
+        // 告诉物理引擎这一帧过了多少秒（推进时间）
+        step_physics(time.delta_secs().min(0.033));
+    }
+}
+//生成软体形状
+fn draw_soft_bodies(mut gizmos: Gizmos, query: Query<&JoltSoftBody>) {
+    unsafe {
+        let physics_system =
+            PHYSICS_SYSTEM_PTR.load(std::sync::atomic::Ordering::SeqCst) as *mut c_void;
+        //println!("physics_system in setup: {:?}", physics_system);
+        for soft_body in query.iter() {
+            let mut current_vertices = vec![0.0f32; soft_body.num_vertices * 3];
+            let actual_count = get_soft_body_vertex_count(physics_system, soft_body.ptr);
+            if actual_count as usize > soft_body.num_vertices {
+                current_vertices.resize(actual_count as usize * 3, 0.0);
+            }
+            get_soft_body_vertices(physics_system, soft_body.ptr, current_vertices.as_mut_ptr());
+
+            let max_lines = soft_body.indices.len().min(3000);
+            for i in (0..max_lines).step_by(3) {
+                let v0_idx = soft_body.indices[i] as usize * 3;
+                let v1_idx = soft_body.indices[i + 1] as usize * 3;
+                let v2_idx = soft_body.indices[i + 2] as usize * 3;
+
+                let v0 = Vec3::new(
+                    current_vertices[v0_idx],
+                    current_vertices[v0_idx + 1],
+                    current_vertices[v0_idx + 2],
+                );
+                let v1 = Vec3::new(
+                    current_vertices[v1_idx],
+                    current_vertices[v1_idx + 1],
+                    current_vertices[v1_idx + 2],
+                );
+                let v2 = Vec3::new(
+                    current_vertices[v2_idx],
+                    current_vertices[v2_idx + 1],
+                    current_vertices[v2_idx + 2],
+                );
+
+                gizmos.line(v0, v1, bevy::color::palettes::css::BLUE);
+                gizmos.line(v1, v2, bevy::color::palettes::css::BLUE);
+                gizmos.line(v2, v0, bevy::color::palettes::css::BLUE);
+            }
+        }
+    }
+}
 // 渲染 Debug 形状
 fn draw_debug_bodies(mut gizmos: Gizmos, query: Query<(&Transform, &JoltBody)>) {
     for (transform, body) in query.iter() {

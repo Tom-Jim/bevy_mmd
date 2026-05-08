@@ -180,6 +180,12 @@ pub fn build(b: *std.Build) void {
     // ===============================================================
     // 5. 链接具体的物理库产物以及 C/C++ 标准库
     // 在 Zig 0.14+ 之后，所有的链接操作必须挂载到 root_module 上
+    lib.root_module.addCSourceFile(.{
+        .file = b.path("src/jolt_softbody.cpp"),
+        .flags = &[_][]const u8{"-std=c++17", "-DJPH_CROSS_PLATFORM_DETERMINISTIC"},
+    });
+    lib.root_module.addIncludePath(zphysics.path("libs"));
+
     lib.root_module.linkLibrary(zphysics.artifact("joltc"));
 
     // 同样，链接 C 和 C++ 标准库的 API 也变了：

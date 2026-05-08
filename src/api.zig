@@ -4,6 +4,7 @@ const assert = std.debug.assert;
 
 // --- 全局变量：这些接口实例必须在物理系统运行期间保持存活 ---
 var g_physics_system: *zphysics.PhysicsSystem = undefined;
+
 var g_bp_interface: MyBroadPhaseLayerInterface = .{};
 var g_obj_vs_bp_filter: MyObjectVsBroadPhaseLayerFilter = .{};
 var g_obj_pair_filter: MyObjectLayerPairFilter = .{};
@@ -11,7 +12,6 @@ var g_obj_pair_filter: MyObjectLayerPairFilter = .{};
 // 1. 定义宽相层接口 (BroadPhaseLayerInterface)
 const MyBroadPhaseLayerInterface = struct {
     interface: zphysics.BroadPhaseLayerInterface = .init(MyBroadPhaseLayerInterface),
-
     pub fn getNumBroadPhaseLayers(_: *const zphysics.BroadPhaseLayerInterface) callconv(.c) u32 {
         return 2; // 0: NON_MOVING, 1: MOVING
     }
@@ -44,9 +44,8 @@ const MyObjectLayerPairFilter = struct {
     }
 };
 
-export fn jolt_init() void {
+export fn jolt_init() *anyopaque {
     zphysics.init(std.heap.c_allocator, .{}) catch unreachable;
-
     // 使用我们定义的接口初始化系统
     g_physics_system = zphysics.PhysicsSystem.create(
         &g_bp_interface.interface,
@@ -60,6 +59,7 @@ export fn jolt_init() void {
     ) catch unreachable;
 
     std.debug.print("Jolt Physics System Initialized with Custom Interfaces!\n", .{});
+    return @ptrCast(g_physics_system);
 }
 
 export fn create_box_body(hx: f32, hy: f32, hz: f32) *const anyopaque {
@@ -84,4 +84,16 @@ export fn create_box_body(hx: f32, hy: f32, hz: f32) *const anyopaque {
 
 export fn jolt_math_test(x: f32, y: f32) f32 {
     return x + y;
+}
+export fn get_physics_system() *anyopaque {
+    return @ptrCast(g_physics_system);
+}
+export fn step_physics(delta_time: f32) void {
+    if (@intFromPtr(g_physics_system) != 0) {
+        // 【关键修改】：把原来的 1 改成 .{}
+        // 这样会使用引擎默认的子步数和配置进行步进
+        g_physics_system.update(delta_time, .{}) catch |err| {
+            std.debug.print("Physics update failed: {}\n", .{err});
+        };
+    }
 }

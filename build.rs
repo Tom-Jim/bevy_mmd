@@ -8,7 +8,18 @@ fn main() {
 
     // 2. 运行 Zig 编译
     let status = Command::new("zig")
-        .args(["build", "-Doptimize=Debug", "-Dtarget=aarch64-macos.26.4"])
+        .args([
+            "build",
+            &format!(
+                "-Doptimize={}",
+                if env::var("PROFILE").unwrap_or_default() == "release" {
+                    "ReleaseFast"
+                } else {
+                    "ReleaseFast"
+                }
+            ),
+            "-Dtarget=aarch64-macos.26.4",
+        ])
         .status()
         .expect("Failed to execute zig build.");
     assert!(status.success(), "Zig build failed!");
@@ -35,7 +46,7 @@ fn main() {
             ])
             .status();
 
-        println!("cargo:rustc-link-lib=static=combined_physics");
+        //println!("cargo:rustc-link-lib=static=combined_physics");
         // 强制要求 Rust 链接器也使用 26.4 版本协议
         println!("cargo:rustc-link-arg=-mmacosx-version-min=26.4");
         println!("cargo:rustc-link-lib=c++");
@@ -44,8 +55,6 @@ fn main() {
         println!("cargo:rustc-link-lib=static=zig_physics");
         println!("cargo:rustc-link-lib=static=joltc");
         println!("cargo:rustc-link-search=native={}", lib_dir.display());
-
-      
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -53,6 +62,12 @@ fn main() {
         println!("cargo:rustc-link-lib=static=zig_physics");
         println!("cargo:rustc-link-lib=static=joltc");
     }
-    Command::new("ranlib").arg(lib_dir.join("libjoltc.a")).status().ok();
-    Command::new("ranlib").arg(lib_dir.join("libzig_physics.a")).status().ok();
+    Command::new("ranlib")
+        .arg(lib_dir.join("libjoltc.a"))
+        .status()
+        .ok();
+    Command::new("ranlib")
+        .arg(lib_dir.join("libzig_physics.a"))
+        .status()
+        .ok();
 }
