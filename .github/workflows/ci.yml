@@ -1,0 +1,41 @@
+name: Cross-Platform Build Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # 如果一个平台失败了，不要取消其他平台的测试
+      fail-fast: false 
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      # 安装 Zig，强制使用 0.16.0 或 master 以满足你的版本要求
+      - name: Install Zig
+        uses: mlugg/setup-zig@v1
+        with:
+          version: master 
+
+      # Bevy 在 Linux 下编译需要依赖系统级的音频和图形库
+      - name: Install Linux Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ pkg-config libx11-dev libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+
+      # 执行编译测试
+      - name: Build and Check
+        run: cargo build --release
