@@ -2,7 +2,9 @@
 # 🚧 [开发中] Bevy 3D 动画与软体物理播放器
 # Bevy 3D Animation & Soft Body Physics Player
 # Bevy 3D 动画与软体物理播放器
+
 [![Build Status](https://github.com/Tom-Jim/bevy_mmd/actions/workflows/ci.yml/badge.svg)](https://github.com/Tom-Jim/bevy_mmd/actions/workflows/ci.yml)
+[![Release Status](https://github.com/Tom-Jim/bevy_mmd/actions/workflows/release.yml/badge.svg)](https://github.com/Tom-Jim/bevy_mmd/actions/workflows/release.yml)
 
 [English](#english) | [中文](#中文)
 
