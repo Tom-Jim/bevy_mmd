@@ -25,7 +25,7 @@ jobs:
 
       # 安装 Zig，强制使用 0.16.0 或 master 以满足你的版本要求
       - name: Install Zig
-        uses: mlugg/setup-zig@v1
+        uses: mlugg/setup-zig@v2
         with:
           version: 0.16.0 
 

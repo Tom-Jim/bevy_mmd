@@ -242,7 +242,7 @@ pub fn spawn_hair_from_pmx(
                     && (bone_idx as usize) < is_anchor.len()
                     && is_anchor[bone_idx as usize]
                 {
-                    if weight > 0.15 {
+                    if weight > 0.0 {
                         is_anchored = true;
                         break;
                     }
