@@ -56,10 +56,6 @@ extern "C" {
         }
 
         // 2. 面与边的构建及去重
-        // 【关键逻辑】：使用 std::set 过滤重复的边。
-        // PMX 模型网格通常由离散的三角形组成。如果直接把所有三角形的边当做弹簧约束，
-        // 两个相邻三角形共享的边就会产生两次甚至多次弹簧约束，导致该处的弹力翻倍甚至爆炸。
-        // 所以我们必须把所有的边提取出来去重，确保两个顶点之间最多只有一根弹簧。
         std::set<std::pair<int, int>> unique_edges;
 
         for (int i = 0; i < num_indices; i += 3) {
@@ -84,27 +80,33 @@ extern "C" {
             unique_edges.insert({std::min(v2, v0), std::max(v2, v0)});
         }
 
-        // 3. 将去重后的边正式注册为物理拉伸约束 (Edge Constraints)
+        // 将去重后的边正式注册为物理拉伸约束 (Edge Constraints)
         for (const auto& edge : unique_edges) {
             SoftBodySharedSettings::Edge e;
             e.mVertex[0] = edge.first;
             e.mVertex[1] = edge.second;
-            // mCompliance 定义了边的柔顺度/弹性。
-            // 0.0f 表示完全不可拉伸，完美模拟丝绸和棉布等非弹性织物。
-            // 彻底去除橡皮筋效果，保持拓扑形状不变。
+            // 0.0f 表示完全不可拉伸
             e.mCompliance = 0.0f; 
             shared_settings->mEdgeConstraints.push_back(e);
         }
 
         // 4. 计算初始状态
-        // 让 Jolt 测量此时所有顶点构成的边的长度，以此作为"静止状态"的弹簧原长。
         shared_settings->CalculateEdgeLengths();
         shared_settings->Optimize();
 
         // 5. 实例化软体
         SoftBodyCreationSettings creation_settings(shared_settings, RVec3::sZero(), Quat::sIdentity(), 1);
 
-        // 设定重力乘数。1.0f 意味着布料受到的重力较弱，营造丝绸轻盈飘逸的自然下坠感。
+        // 增加求解器内部迭代次数（默认是5）。这能在不破坏拓扑且 collision_steps=1 的情况下，
+        // 极大增加布料约束的刚性，彻底解决重力导致的布料拉扯伸长和下垂垮塌问题。
+        creation_settings.mNumIterations = 30;
+
+        // 【关键设置】：不让 Jolt 自动更新软体的中心点 (CenterOfMass)。
+        // 我们的软体是被钉死在动画骨架上的，如果 Jolt 自动计算 COM 位移，
+        // 整个局部空间就会随着布料下垂发生漂移，导致我们算出的 target_pos 完全错误，从而引发疯狂的拉扯和反弹！
+        creation_settings.mUpdatePosition = false;
+
+        // 恢复真实重力 (1.0f)，使用现实世界的 9.8m/s^2 进行模拟
         creation_settings.mGravityFactor = 1.0f;
 
         BodyInterface& body_interface = sys->GetBodyInterface();
@@ -208,7 +210,7 @@ extern "C" {
      * @param count 要更新的顶点数量
      * @param is_first_frame 是否为第一帧 (第一帧时需要瞬间移动软体，而不是施加牵引力)
      */
-    void update_soft_body_roots(void* physics_system_ptr, void* body_id_ptr, const float* all_pos, const int* all_idx, int count, int is_first_frame) 
+    void update_soft_body_roots(void* physics_system_ptr, void* body_id_ptr, const float* all_pos, const int* all_idx, int count, int is_first_frame, float delta_time) 
     {
         if (!physics_system_ptr || !body_id_ptr || !all_pos || !all_idx || count <= 0) return;
 
@@ -240,23 +242,13 @@ extern "C" {
                     // 计算出该顶点在软体局部空间中的目标动画坐标
                     Vec3 target_pos = inv_transform * Vec3(all_pos[i*3], all_pos[i*3+1], all_pos[i*3+2]);
                     
-                    // 分支 1：如果是第一帧，或者是 mInvMass == 0 的顶点 (钉死在躯干上的锚点)
                     if (is_first_frame || vertices[v_idx].mInvMass == 0.0f) {
-                        // 【发根锚点】：钉死在骨骼动画位置
+                        // 【发根锚点 / 瞬移】：钉死在骨骼动画位置
                         vertices[v_idx].mPosition = target_pos;
                         vertices[v_idx].mVelocity = Vec3::sZero();
                     } else {
-                        // 【PBD 基于位置的形变修正 (丝绸仿真)】
-                        // 绝不能将 diff 加到 Velocity 上！那会产生胡克定律的弹簧振荡（果冻弹射效应）。
-                        // 真正的丝绸 PBD 做法是：直接把位置向目标点微调，以此抵抗重力和保持布料大体形状，
-                        // 直接修改位置不会产生任何多余的动能，因此绝对不会反弹和果冻抖动。
-                        Vec3 diff = target_pos - vertices[v_idx].mPosition;
-                        
-                        // 代表每帧向动画网格温柔靠拢，不产生任何物理速度积蓄
-                        vertices[v_idx].mPosition += diff * 0.03f;
-
-                        // 丝绸的空气阻力极大（飘逸感），通过强力衰减速度让布料像在空气中缓慢下坠，消除残留抖动
-                        vertices[v_idx].mVelocity *= 0.95f; 
+                        // 正常的空气阻尼，保留真实的物理飘动速度
+                        vertices[v_idx].mVelocity *= 0.99f; 
                     }
                 }
             }

@@ -65,7 +65,7 @@ export fn jolt_init() *anyopaque {
 export fn create_box_body(hx: f32, hy: f32, hz: f32) *const anyopaque {
     const box_settings = zphysics.BoxShapeSettings.create(.{ hx, hy, hz }) catch unreachable;
     const shape = box_settings.asShapeSettings().createShape() catch unreachable;
-    
+
     const body_settings = zphysics.BodyCreationSettings{
         .shape = shape,
         .position = .{ 0.0, 10.0, 0.0, 1.0 },
@@ -90,9 +90,8 @@ export fn get_physics_system() *anyopaque {
 }
 export fn step_physics(delta_time: f32) void {
     if (@intFromPtr(g_physics_system) != 0) {
-        // 【关键修改】：把原来的 1 改成 .{}
-        // 这样会使用引擎默认的子步数和配置进行步进
-        g_physics_system.update(delta_time, .{}) catch |err| {
+        // 【关键修改】：增加物理步进次数到 4，大幅增加软体约束求解的刚性，完美防止布料在初始受重力时严重下垂
+        g_physics_system.update(delta_time, .{ .collision_steps = 1 }) catch |err| {
             std.debug.print("Physics update failed: {}\n", .{err});
         };
     }

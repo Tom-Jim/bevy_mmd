@@ -1,0 +1,128 @@
+(lldb) command script import "/Users/macos/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/etc/lldb_lookup.py"
+(lldb) command source -s 0 '/Users/macos/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/etc/lldb_commands'
+Executing commands in '/Users/macos/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/etc/lldb_commands'.
+(lldb) # Forces test-compliant formatting to all other types
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x ".*" --category Rust
+(lldb) # Std String
+(lldb) type synthetic add -l lldb_lookup.StdStringSyntheticProvider -x "^(alloc::([a-z_]+::)+)String$" --category Rust
+(lldb) type summary add -F lldb_lookup.StdStringSummaryProvider  -e -x -h "^(alloc::([a-z_]+::)+)String$" --category Rust
+(lldb) # Std str
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^&(mut )?str$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^&(mut )?str$" --category Rust
+(lldb) ## MSVC
+(lldb) type synthetic add -l lldb_lookup.MSVCStrSyntheticProvider -x "^ref(_mut)?\$<str\$>$" --category Rust
+(lldb) type summary add -F lldb_lookup.StdStrSummaryProvider -e -h -x "^ref(_mut)?\$<str\$>$" --category Rust
+(lldb) # Array
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^&(mut )?\\[.+\\]$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^&(mut )?\\[.+\\]$" --category Rust
+(lldb) # Slice
+(lldb) ## MSVC
+(lldb) type synthetic add -l lldb_lookup.MSVCStdSliceSyntheticProvider -x "^ref(_mut)?\$<slice2\$<.+> >" --category Rust
+(lldb) type summary add -F lldb_lookup.StdSliceSummaryProvider -e -x -h "^ref(_mut)?\$<slice2\$<.+> >" --category Rust
+(lldb) # OsString
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^(std::ffi::([a-z_]+::)+)OsString$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^(std::ffi::([a-z_]+::)+)OsString$" --category Rust
+(lldb) # Vec
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^(alloc::([a-z_]+::)+)Vec<.+>$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^(alloc::([a-z_]+::)+)Vec<.+>$" --category Rust
+(lldb) # VecDeque
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^(alloc::([a-z_]+::)+)VecDeque<.+>$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^(alloc::([a-z_]+::)+)VecDeque<.+>$" --category Rust
+(lldb) # BTreeSet
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^(alloc::([a-z_]+::)+)BTreeSet<.+>$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^(alloc::([a-z_]+::)+)BTreeSet<.+>$" --category Rust
+(lldb) # BTreeMap
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^(alloc::([a-z_]+::)+)BTreeMap<.+>$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^(alloc::([a-z_]+::)+)BTreeMap<.+>$" --category Rust
+(lldb) # HashMap
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^(std::collections::([a-z_]+::)+)HashMap<.+>$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^(std::collections::([a-z_]+::)+)HashMap<.+>$" --category Rust
+(lldb) # HashSet
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^(std::collections::([a-z_]+::)+)HashSet<.+>$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^(std::collections::([a-z_]+::)+)HashSet<.+>$" --category Rust
+(lldb) # Rc
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^(alloc::([a-z_]+::)+)Rc<.+>$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^(alloc::([a-z_]+::)+)Rc<.+>$" --category Rust
+(lldb) # Arc
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^(alloc::([a-z_]+::)+)Arc<.+>$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^(alloc::([a-z_]+::)+)Arc<.+>$" --category Rust
+(lldb) # Cell
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^(core::([a-z_]+::)+)Cell<.+>$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^(core::([a-z_]+::)+)Cell<.+>$" --category Rust
+(lldb) # RefCell
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^(core::([a-z_]+::)+)Ref<.+>$" --category Rust
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^(core::([a-z_]+::)+)RefMut<.+>$" --category Rust
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^(core::([a-z_]+::)+)RefCell<.+>$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^(core::([a-z_]+::)+)Ref<.+>$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^(core::([a-z_]+::)+)RefMut<.+>$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^(core::([a-z_]+::)+)RefCell<.+>$" --category Rust
+(lldb) # NonZero
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^(core::([a-z_]+::)+)NonZero<.+>$" --category Rust
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^core::num::([a-z_]+::)*NonZero.+$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^(core::([a-z_]+::)+)NonZero<.+>$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^core::num::([a-z_]+::)*NonZero.+$" --category Rust
+(lldb) # PathBuf
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^(std::([a-z_]+::)+)PathBuf$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^(std::([a-z_]+::)+)PathBuf$" --category Rust
+(lldb) # Path
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^&(mut )?(std::([a-z_]+::)+)Path$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^&(mut )?(std::([a-z_]+::)+)Path$" --category Rust
+(lldb) # Enum
+(lldb) # type summary add -F lldb_lookup.ClangEncodedEnumSummaryProvider -e -h "lldb_lookup.is_sum_type_enum" --recognizer-function --category Rust
+(lldb) ## MSVC
+(lldb) type synthetic add -l lldb_lookup.MSVCEnumSyntheticProvider -x "^enum2\$<.+>$" --category Rust
+(lldb) type summary add -F lldb_lookup.MSVCEnumSummaryProvider -e -x -h "^enum2\$<.+>$" --category Rust
+(lldb) ## MSVC Variants
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^enum2\$<.+>::.*$" --category Rust
+(lldb) type summary add -F lldb_lookup.summary_lookup  -e -x -h "^enum2\$<.+>::.*$" --category Rust
+(lldb) # Tuple
+(lldb) type synthetic add -l lldb_lookup.synthetic_lookup -x "^\(.*\)$" --category Rust
+(lldb) type summary add -F lldb_lookup.TupleSummaryProvider -e -x -h "^\(.*\)$" --category Rust
+(lldb) ## MSVC
+(lldb) type synthetic add -l lldb_lookup.MSVCTupleSyntheticProvider -x "^tuple\$<.+>$" --category Rust
+(lldb) type summary add -F lldb_lookup.TupleSummaryProvider -e -x -h "^tuple\$<.+>$" --category Rust
+(lldb) type category enable Rust
+(lldb) target create "target/release/bevy3Danimation"
+Current executable set to '/Users/macos/Desktop/Rust/rustcode/bevy3Danimation/target/release/bevy3Danimation' (arm64).
+(lldb) run
+Rust: Starting engine...
+Jolt Physics System Initialized with Custom Interfaces!
+Rust: Got math result from Zig/Jolt: 41.00414
+[2m2026-05-09T15:15:36.764254Z[0m [32m INFO[0m [2mbevy_diagnostic::system_information_diagnostics_plugin::internal[0m[2m:[0m SystemInfo { os: "macOS 26.4.1", kernel: "25.4.0", cpu: "Apple M3", core_count: "8", memory: "16.0 GiB" }
+[2m2026-05-09T15:15:36.764565Z[0m [33m WARN[0m [2mbevy_asset::io::source[0m[2m:[0m AssetSourceId::Default does not have an AssetWatcher configured. Consider enabling the `file_watcher` feature.
+[2m2026-05-09T15:15:37.004590Z[0m [32m INFO[0m [2mbevy_render::renderer[0m[2m:[0m AdapterInfo { name: "Apple M3", vendor: 0, device: 0, device_type: IntegratedGpu, driver: "", driver_info: "", backend: Metal }
+2026-05-09 23:15:37.030599+0800 bevy3Danimation[47304:7133844] [plugin] AddInstanceForFactory: No factory registered for id <CFUUID 0xb68e4b800> F8BB1C28-BAE8-11D6-9C31-00039315CD46
+2026-05-09 23:15:37.052134+0800 bevy3Danimation[47304:7133844] [logging-persist] cannot open file at line 51044 of [f0ca7bba1c]
+2026-05-09 23:15:37.052145+0800 bevy3Danimation[47304:7133844] [logging-persist] os_unix.c:51044: (2) open(/private/var/db/DetachedSignatures) - No such file or directory
+2026-05-09 23:15:37.053007+0800 bevy3Danimation[47304:7133844] [carc] Failed to read entitlements for process.
+2026-05-09 23:15:37.054493+0800 bevy3Danimation[47304:7133844] [carc] Reporter disconnected. { function=sendMessage, reporterID=203169132969986 }
+[2m2026-05-09T15:15:37.065157Z[0m [32m INFO[0m [2mbevy_render::batching::gpu_preprocessing[0m[2m:[0m GPU preprocessing is fully supported on this device.
+2026-05-09 23:15:38.461941+0800 bevy3Danimation[47304:7134107] [AMCP]          HALC_ProxyIOContext.cpp:1623  HALC_ProxyIOContext::IOWorkLoop: skipping cycle due to overload
+2026-05-09 23:15:38.463265+0800 bevy3Danimation[47304:7134107] [AMCP]          HALC_ProxyIOContext.cpp:1631  HALC_ProxyIOContext::IOWorkLoop: context 5371 received an out of order message (got 131 want: 1)
+[2m2026-05-09T15:15:38.480033Z[0m [32m INFO[0m [2mbevy_winit::system[0m[2m:[0m Creating new window bevy3Danimation (0v0)
+2026-05-09 23:15:38.523500+0800 bevy3Danimation[47304:7133844] [WindowTab] Cannot index window tabs due to missing main bundle identifier
+[2m2026-05-09T15:15:38.543025Z[0m [32m INFO[0m [2mbevy3Danimation::softbody[0m[2m:[0m spawned flag softbody
+[INFO] PMX 信息已写入 src/pmx/pmx_info.txt
+[2m2026-05-09T15:15:38.571517Z[0m [31mERROR[0m [2mbevy_asset::server[0m[2m:[0m Path not found: /Users/macos/Desktop/Rust/rustcode/bevy3Danimation/target/release/assets/模型/星穹铁道—长夜月_by_崩坏：星穹铁道_b2f53bd03831e138dd0c72f0782bc894/衣.png
+[2m2026-05-09T15:15:38.571557Z[0m [31mERROR[0m [2mbevy_asset::server[0m[2m:[0m Path not found: /Users/macos/Desktop/Rust/rustcode/bevy3Danimation/target/release/assets/模型/星穹铁道—长夜月_by_崩坏：星穹铁道_b2f53bd03831e138dd0c72f0782bc894/颜赤.tga
+[2m2026-05-09T15:15:38.571525Z[0m [31mERROR[0m [2mbevy_asset::server[0m[2m:[0m Path not found: /Users/macos/Desktop/Rust/rustcode/bevy3Danimation/target/release/assets/模型/星穹铁道—长夜月_by_崩坏：星穹铁道_b2f53bd03831e138dd0c72f0782bc894/颜.png
+[2m2026-05-09T15:15:38.571561Z[0m [31mERROR[0m [2mbevy_asset::server[0m[2m:[0m Path not found: /Users/macos/Desktop/Rust/rustcode/bevy3Danimation/target/release/assets/模型/星穹铁道—长夜月_by_崩坏：星穹铁道_b2f53bd03831e138dd0c72f0782bc894/31.bmp
+[2m2026-05-09T15:15:38.571589Z[0m [31mERROR[0m [2mbevy_asset::server[0m[2m:[0m Path not found: /Users/macos/Desktop/Rust/rustcode/bevy3Danimation/target/release/assets/模型/星穹铁道—长夜月_by_崩坏：星穹铁道_b2f53bd03831e138dd0c72f0782bc894/衣2.png
+[2m2026-05-09T15:15:38.571592Z[0m [31mERROR[0m [2mbevy_asset::server[0m[2m:[0m Path not found: /Users/macos/Desktop/Rust/rustcode/bevy3Danimation/target/release/assets/模型/星穹铁道—长夜月_by_崩坏：星穹铁道_b2f53bd03831e138dd0c72f0782bc894/黑.jpg
+[2m2026-05-09T15:15:38.571569Z[0m [31mERROR[0m [2mbevy_asset::server[0m[2m:[0m Path not found: /Users/macos/Desktop/Rust/rustcode/bevy3Danimation/target/release/assets/模型/星穹铁道—长夜月_by_崩坏：星穹铁道_b2f53bd03831e138dd0c72f0782bc894/toon4.png
+[2m2026-05-09T15:15:38.571595Z[0m [31mERROR[0m [2mbevy_asset::server[0m[2m:[0m Path not found: /Users/macos/Desktop/Rust/rustcode/bevy3Danimation/target/release/assets/模型/星穹铁道—长夜月_by_崩坏：星穹铁道_b2f53bd03831e138dd0c72f0782bc894/SP0d_20190820_005614.bmp
+[2m2026-05-09T15:15:38.571620Z[0m [31mERROR[0m [2mbevy_asset::server[0m[2m:[0m Path not found: /Users/macos/Desktop/Rust/rustcode/bevy3Danimation/target/release/assets/模型/星穹铁道—长夜月_by_崩坏：星穹铁道_b2f53bd03831e138dd0c72f0782bc894/髪.png
+[2m2026-05-09T15:15:38.571641Z[0m [31mERROR[0m [2mbevy_asset::server[0m[2m:[0m Path not found: /Users/macos/Desktop/Rust/rustcode/bevy3Danimation/target/release/assets/模型/星穹铁道—长夜月_by_崩坏：星穹铁道_b2f53bd03831e138dd0c72f0782bc894/toon3.png
+[2m2026-05-09T15:15:38.571643Z[0m [31mERROR[0m [2mbevy_asset::server[0m[2m:[0m Path not found: /Users/macos/Desktop/Rust/rustcode/bevy3Danimation/target/release/assets/模型/星穹铁道—长夜月_by_崩坏：星穹铁道_b2f53bd03831e138dd0c72f0782bc894/bq.png
+[2m2026-05-09T15:15:38.608952Z[0m [32m INFO[0m [2mbevy3Danimation::softbody[0m[2m:[0m spawned hair softbody: pmx_verts=22870, sb_verts=12152, pinned_roots=9306
+Process 47304 launched: '/Users/macos/Desktop/Rust/rustcode/bevy3Danimation/target/release/bevy3Danimation' (arm64)
+Process 47304 stopped
+* thread #1, name = 'main', queue = 'com.apple.main-thread', stop reason = signal SIGTERM
+    frame #0: 0x00000001863cb50c libsystem_kernel.dylib`__psynch_cvwait + 8
+libsystem_kernel.dylib`__psynch_cvwait:
+->  0x1863cb50c <+8>:  b.lo   0x1863cb52c               ; <+40>
+    0x1863cb510 <+12>: pacibsp 
+    0x1863cb514 <+16>: stp    x29, x30, [sp, #-0x10]!
+    0x1863cb518 <+20>: mov    x29, sp
+Target 0: (bevy3Danimation) stopped.
+^C
