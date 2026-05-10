@@ -180,7 +180,7 @@ pub fn spawn_hair_from_pmx(
         }
         let mut current_parent = b.parent;
         let mut depth = 1;
-        while current_parent >= 0 && depth <= 2 {
+        while current_parent >= 0 && depth <= 1 {
             if is_core[current_parent as usize] {
                 is_anchor[i] = true;
                 break;
@@ -230,7 +230,7 @@ pub fn spawn_hair_from_pmx(
 
             sb_vertices.push(v.position[0]);
             sb_vertices.push(v.position[1]);
-            sb_vertices.push(-v.position[2]);
+            sb_vertices.push(v.position[2]);
 
             // 评估是否被锚定（如果任意锚点骨骼权重大于 15%）
             let (bi, bw) = crate::animation::convert_vertex_weight(&v.weight_type);
@@ -242,7 +242,7 @@ pub fn spawn_hair_from_pmx(
                     && (bone_idx as usize) < is_anchor.len()
                     && is_anchor[bone_idx as usize]
                 {
-                    if weight > 0.0 {
+                    if weight > 0.1 {
                         is_anchored = true;
                         break;
                     }

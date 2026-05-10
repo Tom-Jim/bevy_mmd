@@ -20,6 +20,9 @@ fn main() {
     // 只有在 macOS 下，才强制指定 aarch64-macos
     #[cfg(target_os = "macos")]
     zig_args.push("-Dtarget=aarch64-macos.26.4");
+
+    #[cfg(target_os = "windows")]
+    zig_args.push("-Dtarget=x86_64-windows-gnu");    
     // 运行 Zig 编译
     let status = Command::new("zig")
         .args(&zig_args)
@@ -59,30 +62,25 @@ fn main() {
         println!("cargo:rustc-link-lib=static=joltc");
         println!("cargo:rustc-link-search=native={}", lib_dir.display());
     }
-
-    #[cfg(not(target_os = "macos"))]
+    // 👇 添加下面这两行：强制 Windows 下的 Zig 使用 GNU ABI 绕开 MSVC 对齐 Bug
+    #[cfg(target_os = "windows")]
+    {
+        // Windows 下使用的 target 工具链而定 (MSVC 或 GNU)
+        // 如果是 gnu (mingw)，通常需要 stdc++
+        let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap();
+        if target_env == "gnu" {
+            println!("cargo:rustc-link-lib=stdc++");
+        }
+        // MSVC 环境通常会自动链接 C++ 运行时，但有时需要显式处理
+    }
+    #[cfg(target_os = "linux")]
     {
         // 告诉 Rust 静态链接你的两个库
         println!("cargo:rustc-link-search=native=zig-out/lib");
         println!("cargo:rustc-link-lib=static=zig_physics");
         println!("cargo:rustc-link-lib=static=joltc");
-
-        // 👇 下面是修复缺失的关键部分 👇
+        println!("cargo:rustc-link-lib=stdc++");
         let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
-        if target_os == "linux" {
-            // Linux 下通常链接 stdc++，但因为 Zig 用了 LLVM 的 libc++
-            // 如果链接 c++ 报错找不到库，请在 Ubuntu 的 CI 里加上: sudo apt-get install libc++-dev libc++abi-dev
-            println!("cargo:rustc-link-lib=stdc++");
-            // 如果依然报 std::__1 错误，把上面那行换成 println!("cargo:rustc-link-lib=c++");
-        } else if target_os == "windows" {
-            // Windows 下视你使用的 target 工具链而定 (MSVC 或 GNU)
-            // 如果是 gnu (mingw)，通常需要 stdc++
-            let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap();
-            if target_env == "gnu" {
-                println!("cargo:rustc-link-lib=stdc++");
-            }
-            // MSVC 环境通常会自动链接 C++ 运行时，但有时需要显式处理
-        }
     }
     Command::new("ranlib")
         .arg(lib_dir.join("libjoltc.a"))
