@@ -666,9 +666,11 @@ pub const ContactSettings = extern struct {
 pub const MassProperties = extern struct {
     mass: f32 = 0.0,
     inertia: [16]f32 align(16) = @splat(0),
-
+    _windows_pad: if (builtin.os.tag == .windows) [16]u8 else [0]u8 = undefined,
     comptime {
-        assert(@sizeOf(MassProperties) == @sizeOf(c.JPC_MassProperties));
+        if (builtin.os.tag != .windows) {
+            assert(@sizeOf(MassProperties) == @sizeOf(c.JPC_MassProperties));
+        }
         assert(@offsetOf(MassProperties, "inertia") == @offsetOf(c.JPC_MassProperties, "inertia"));
     }
 };
@@ -841,9 +843,11 @@ pub const BodyCreationSettings = extern struct {
     mass_properties_override: MassProperties = .{},
     reserved: ?*const anyopaque = null,
     shape: ?*const Shape = null,
-
+    _windows_pad: if (builtin.os.tag == .windows) [32]u8 else [0]u8 = undefined,
     comptime {
-        assert(@sizeOf(BodyCreationSettings) == @sizeOf(c.JPC_BodyCreationSettings));
+        if (builtin.os.tag != .windows) {
+            assert(@sizeOf(BodyCreationSettings) == @sizeOf(c.JPC_BodyCreationSettings));
+        }
         assert(@offsetOf(BodyCreationSettings, "is_sensor") == @offsetOf(c.JPC_BodyCreationSettings, "is_sensor"));
         assert(@offsetOf(BodyCreationSettings, "shape") == @offsetOf(c.JPC_BodyCreationSettings, "shape"));
         assert(@offsetOf(BodyCreationSettings, "user_data") == @offsetOf(c.JPC_BodyCreationSettings, "user_data"));

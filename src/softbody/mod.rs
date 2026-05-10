@@ -212,9 +212,10 @@ pub fn spawn_hair_from_pmx(
     for &pmx_idx in &soft_pmx_indices {
         let v = &vertices[pmx_idx as usize];
 
+        // 使用与 PMX 加载阶段一致的坐标系（Z 轴取反）
         let qx = (v.position[0] * 1000.0).round() as i32;
         let qy = (v.position[1] * 1000.0).round() as i32;
-        let qz = (v.position[2] * 1000.0).round() as i32;
+        let qz = ((-v.position[2]) * 1000.0).round() as i32;
         let q_pos = (qx, qy, qz);
 
         if let Some(&sb_idx) = pos_to_sb.get(&q_pos) {
@@ -230,7 +231,7 @@ pub fn spawn_hair_from_pmx(
 
             sb_vertices.push(v.position[0]);
             sb_vertices.push(v.position[1]);
-            sb_vertices.push(v.position[2]);
+            sb_vertices.push(-v.position[2]);
 
             // 评估是否被锚定（如果任意锚点骨骼权重大于 15%）
             let (bi, bw) = crate::animation::convert_vertex_weight(&v.weight_type);

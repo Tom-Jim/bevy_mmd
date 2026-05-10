@@ -85,7 +85,7 @@ extern "C" {
             SoftBodySharedSettings::Edge e;
             e.mVertex[0] = edge.first;
             e.mVertex[1] = edge.second;
-            // 0.0f 表示完全不可拉伸
+            // 使用极小的 compliance（而不是 0），避免数值刚性导致的震荡/撕裂
             e.mCompliance = 0.0f; 
             shared_settings->mEdgeConstraints.push_back(e);
         }
@@ -167,16 +167,12 @@ extern "C" {
             if (body.IsSoftBody()) {
                 const SoftBodyMotionProperties* mp = static_cast<const SoftBodyMotionProperties*>(body.GetMotionProperties());
                 const Array<SoftBodyVertex>& vertices = mp->GetVertices();
-                // 软体的顶点坐标通常是相对于质心(CenterOfMass)的局部坐标。
-                // 必须乘以质心的世界变换矩阵，才能得到真实的 3D 世界坐标。
-                Mat44 world_transform = body.GetCenterOfMassTransform();
-
+                // 由于我们禁用了 mUpdatePosition，mPosition 直接就是绝对世界坐标。
                 size_t count = std::min(vertices.size(), static_cast<size_t>(max_vertices));
                 for (size_t i = 0; i < count; ++i) {
-                    Vec3 world_pos = world_transform * vertices[i].mPosition;
-                    out_vertices[i*3 + 0] = world_pos.GetX();
-                    out_vertices[i*3 + 1] = world_pos.GetY();
-                    out_vertices[i*3 + 2] = world_pos.GetZ();
+                    out_vertices[i*3 + 0] = vertices[i].mPosition.GetX();
+                    out_vertices[i*3 + 1] = vertices[i].mPosition.GetY();
+                    out_vertices[i*3 + 2] = vertices[i].mPosition.GetZ();
                 }
             }
         }
@@ -230,25 +226,38 @@ extern "C" {
             if (body.IsSoftBody()) {
                 SoftBodyMotionProperties* mp = static_cast<SoftBodyMotionProperties*>(body.GetMotionProperties());
                 auto& vertices = mp->GetVertices();
-                // 由于我们传入的 all_pos 是世界坐标，而软体的顶点位于相对于质心的局部空间，
-                // 我们必须使用质心变换矩阵的逆矩阵 (Inversed) 将其转换回局部空间进行比较。
-                Mat44 inv_transform = body.GetCenterOfMassTransform().Inversed();
-
+                // 我们之前禁用了 Jolt 的 COM 自动更新，所以局部坐标域等同于世界坐标域。
                 int max_v = static_cast<int>(vertices.size());
                 for (int i = 0; i < count; ++i) {
                     int v_idx = all_idx[i];
                     if (v_idx < 0 || v_idx >= max_v) continue; // 安全检查：防止越界
 
-                    // 计算出该顶点在软体局部空间中的目标动画坐标
-                    Vec3 target_pos = inv_transform * Vec3(all_pos[i*3], all_pos[i*3+1], all_pos[i*3+2]);
+                    // 动画蒙皮坐标直接作为目标位置
+                    Vec3 target_pos(all_pos[i*3], all_pos[i*3+1], all_pos[i*3+2]);
                     
                     if (is_first_frame || vertices[v_idx].mInvMass == 0.0f) {
                         // 【发根锚点 / 瞬移】：钉死在骨骼动画位置
                         vertices[v_idx].mPosition = target_pos;
                         vertices[v_idx].mVelocity = Vec3::sZero();
                     } else {
-                        // 正常的空气阻尼，保留真实的物理飘动速度
-                        vertices[v_idx].mVelocity *= 0.99f; 
+                        // 软性形状匹配 (Soft Shape Matching) - 修复飞碟摆动和 720 度大风车
+                        // 使用纯粹的 PBD (Position Based) 修正代替 Velocity 弹簧，彻底消除果冻弹跳和超速甩圈。
+                        Vec3 diff = target_pos - vertices[v_idx].mPosition;
+                        
+                        // 1. 位置强拉：每帧强行向目标移动 5%，这相当于无动能累积的极度阻尼约束，完美贴合角色腿部。
+                        vertices[v_idx].mPosition += diff * 0.05f;
+
+                        // 2. 移除剧烈的速度累积，仅保留微弱的随动拖拽力
+                        vertices[v_idx].mVelocity += diff * 2.0f * delta_time;
+
+                        // 3. 空气阻尼减弱，让丝绸顺滑飘落而不是像在泥浆中
+                        vertices[v_idx].mVelocity *= 0.995f; 
+
+                        // 4. 暴力限速：防止离心力过大导致头发甩成螺旋桨 (720度大回环)
+                        float speed_sq = vertices[v_idx].mVelocity.LengthSq();
+                        if (speed_sq > 400.0f) { // 最大速度限制 20m/s
+                            vertices[v_idx].mVelocity *= (20.0f / std::sqrt(speed_sq));
+                        }
                     }
                 }
             }

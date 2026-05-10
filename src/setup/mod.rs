@@ -58,7 +58,7 @@ pub fn setup(
     ));
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 15.0, 50.0).looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
+        Transform::from_xyz(0.0, 30.0, 50.0).looking_at(Vec3::new(0.0, 50.0, 0.0), Vec3::Y),
         PanOrbitCamera::default(),
     ));
 }

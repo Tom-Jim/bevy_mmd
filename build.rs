@@ -22,7 +22,7 @@ fn main() {
     zig_args.push("-Dtarget=aarch64-macos.26.4");
 
     #[cfg(target_os = "windows")]
-    zig_args.push("-Dtarget=x86_64-windows-gnu");    
+    zig_args.push("-Dtarget=x86_64-windows-gnu");
     // 运行 Zig 编译
     let status = Command::new("zig")
         .args(&zig_args)
@@ -79,8 +79,11 @@ fn main() {
         println!("cargo:rustc-link-search=native=zig-out/lib");
         println!("cargo:rustc-link-lib=static=zig_physics");
         println!("cargo:rustc-link-lib=static=joltc");
-        println!("cargo:rustc-link-lib=stdc++");
-        let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
+        // 明确指定链接 LLVM 的 c++ 库，而不是 GNU 的 stdc++
+        println!("cargo:rustc-link-lib=c++");
+        // 保险起见，把 c++ 的 ABI 库也一起链上，防止底层线程函数丢失
+        println!("cargo:rustc-link-lib=c++abi");
+        //let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     }
     Command::new("ranlib")
         .arg(lib_dir.join("libjoltc.a"))

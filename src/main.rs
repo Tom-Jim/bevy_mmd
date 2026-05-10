@@ -2,8 +2,6 @@
 // bevy3Danimation — PMX + VMD 实时 CPU 蒙皮动画播放器
 // ═════════════════════════════════════════════════════════════════════════════
 
-use std::ffi::c_void;
-
 use bevy::asset::AssetPlugin;
 use bevy::pbr::MaterialPlugin;
 use bevy::prelude::*;
@@ -13,6 +11,7 @@ mod animation;
 mod components;
 mod physics;
 mod pmx;
+mod screen_record;
 mod setup;
 mod softbody;
 mod vmd;
@@ -36,13 +35,27 @@ fn main() {
         println!("Rust: Got math result from Zig/Jolt: {}", result);
     }
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            file_path: "assets".into(),
-            watch_for_changes_override: Some(true),
-            ..Default::default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(AssetPlugin {
+                    file_path: "assets".into(),
+                    watch_for_changes_override: Some(true),
+                    ..Default::default()
+                })
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "bevy3Danimation MMD Player".into(),
+                        ..Default::default()
+                    }),
+                    // 🚨 核心魔法：禁用引擎自带的“按 X 键强制销毁窗口”行为
+                    // 这样 X 键的控制权就完全交给了我们自定义的 screen_record 模块
+                    close_when_requested: false,
+                    ..Default::default()
+                }),
+        )
         .add_plugins(MaterialPlugin::<PmxMaterial>::default())
         .add_plugins(PanOrbitCameraPlugin)
+        .add_plugins(screen_record::ScreenRecordPlugin)
         .add_systems(Startup, setup)
         // 两阶段：先计算骨骼+蒙皮，再把结果写入各 Mesh
         .add_systems(Update, (skin_update_system, apply_skin_to_meshes).chain())
