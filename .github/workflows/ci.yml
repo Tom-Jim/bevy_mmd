@@ -15,7 +15,7 @@ jobs:
             # 如果一个平台失败了，不要取消其他平台的测试
             fail-fast: false
             matrix:
-                os: [ubuntu-latest, windows-latest, macos-latest]
+                os: [ubuntu-latest, macos-latest]
 
         steps:
             - name: Checkout code

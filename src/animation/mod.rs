@@ -303,10 +303,11 @@ pub fn skin_update_system(
                 let py = current_vertices[sb_idx * 3 + 1];
                 let pz = current_vertices[sb_idx * 3 + 2];
 
-                for &pmx_idx in &hair.sb_to_pmx_map[sb_idx] {
+                for &(pmx_idx, offset) in &hair.sb_to_pmx_map[sb_idx] {
                     if pmx_idx < skin.skinned_positions.len() {
                         // 强制覆写 PmxSharedSkin 里的坐标，这样下一步 apply_skin_to_meshes 就会渲染物理布料
-                        skin.skinned_positions[pmx_idx] = [px, py, pz];
+                        // 叠加物理软体坐标与顶点相对于物理点的初始偏移，保证内衬等厚度不丢失
+                        skin.skinned_positions[pmx_idx] = [px + offset.x, py + offset.y, pz + offset.z];
                     }
                 }
             }

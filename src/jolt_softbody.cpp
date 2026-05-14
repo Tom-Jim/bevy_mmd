@@ -55,9 +55,7 @@ extern "C" {
             shared_settings->mVertices.push_back(v);
         }
 
-        // 2. 面与边的构建及去重
-        std::set<std::pair<int, int>> unique_edges;
-
+        // 2. 面的构建
         for (int i = 0; i < num_indices; i += 3) {
             int v0 = indices[i];
             int v1 = indices[i+1];
@@ -67,28 +65,20 @@ extern "C" {
                 continue; // 跳过无效的三角形索引，防止越界
             }
 
-            // 注册面，这主要用于软体与其他刚体（如角色碰撞胶囊）之间的碰撞检测。
+            // 注册面，主要用于碰撞检测，并在下一步作为生成约束的依据
             SoftBodySharedSettings::Face f;
             f.mVertex[0] = v0;
             f.mVertex[1] = v1;
             f.mVertex[2] = v2;
             shared_settings->mFaces.push_back(f);
-
-            // 注册边，保证小索引在前，大索引在后，插入 std::set 自动实现去重。
-            unique_edges.insert({std::min(v0, v1), std::max(v0, v1)});
-            unique_edges.insert({std::min(v1, v2), std::max(v1, v2)});
-            unique_edges.insert({std::min(v2, v0), std::max(v2, v0)});
         }
 
-        // 将去重后的边正式注册为物理拉伸约束 (Edge Constraints)
-        for (const auto& edge : unique_edges) {
-            SoftBodySharedSettings::Edge e;
-            e.mVertex[0] = edge.first;
-            e.mVertex[1] = edge.second;
-            // 使用极小的 compliance（而不是 0），避免数值刚性导致的震荡/撕裂
-            e.mCompliance = 0.0f; 
-            shared_settings->mEdgeConstraints.push_back(e);
-        }
+        // 3. 自动生成约束 (Edge, Shear, Bend)
+        SoftBodySharedSettings::VertexAttributes vertex_attributes;
+        vertex_attributes.mCompliance = 0.00001f;       // 拉伸柔顺度 (设为0尽可能保持原始长度)
+        vertex_attributes.mShearCompliance = 0.0000f;  // 剪切柔顺度
+        vertex_attributes.mBendCompliance = 0.005f;    // 弯曲柔顺度 (适当增加，让裙摆更自然柔和)
+        shared_settings->CreateConstraints(&vertex_attributes, 1, SoftBodySharedSettings::EBendType::Distance);
 
         // 4. 计算初始状态
         shared_settings->CalculateEdgeLengths();
@@ -99,7 +89,7 @@ extern "C" {
 
         // 增加求解器内部迭代次数（默认是5）。这能在不破坏拓扑且 collision_steps=1 的情况下，
         // 极大增加布料约束的刚性，彻底解决重力导致的布料拉扯伸长和下垂垮塌问题。
-        creation_settings.mNumIterations = 30;
+        creation_settings.mNumIterations = 40;
 
         // 【关键设置】：不让 Jolt 自动更新软体的中心点 (CenterOfMass)。
         // 我们的软体是被钉死在动画骨架上的，如果 Jolt 自动计算 COM 位移，
@@ -237,26 +227,26 @@ extern "C" {
                     
                     if (is_first_frame || vertices[v_idx].mInvMass == 0.0f) {
                         // 【发根锚点 / 瞬移】：钉死在骨骼动画位置
+                        // 如果是第一帧瞬移所有的点，或者这个点是固定锚点(mInvMass == 0.0f)
                         vertices[v_idx].mPosition = target_pos;
                         vertices[v_idx].mVelocity = Vec3::sZero();
                     } else {
-                        // 软性形状匹配 (Soft Shape Matching) - 修复飞碟摆动和 720 度大风车
-                        // 使用纯粹的 PBD (Position Based) 修正代替 Velocity 弹簧，彻底消除果冻弹跳和超速甩圈。
+                        // 软性形状匹配 (Soft Shape Matching) - 恢复并弱化，引导布料跟随动画运动
                         Vec3 diff = target_pos - vertices[v_idx].mPosition;
-                        
-                        // 1. 位置强拉：每帧强行向目标移动 5%，这相当于无动能累积的极度阻尼约束，完美贴合角色腿部。
-                        vertices[v_idx].mPosition += diff * 0.05f;
 
-                        // 2. 移除剧烈的速度累积，仅保留微弱的随动拖拽力
-                        vertices[v_idx].mVelocity += diff * 2.0f * delta_time;
+                        // 1. 位置牵引，保持骨架形状，适度拉扯
+                        vertices[v_idx].mPosition += diff * 0.10f;
 
-                        // 3. 空气阻尼减弱，让丝绸顺滑飘落而不是像在泥浆中
-                        vertices[v_idx].mVelocity *= 0.995f; 
+                        // 2. 速度牵引 (累加而非覆盖，这样才能保留重力和惯性！)
+                        vertices[v_idx].mVelocity += diff * 5.0f * delta_time;
 
-                        // 4. 暴力限速：防止离心力过大导致头发甩成螺旋桨 (720度大回环)
+                        // 3. 空气阻尼
+                        vertices[v_idx].mVelocity *= 0.97f;
+
+                        // 4. 暴力限速：防止离心力过大导致布料甩飞
                         float speed_sq = vertices[v_idx].mVelocity.LengthSq();
-                        if (speed_sq > 400.0f) { // 最大速度限制 20m/s
-                            vertices[v_idx].mVelocity *= (20.0f / std::sqrt(speed_sq));
+                        if (speed_sq > 200.0f) { // 最大速度限制 14m/s
+                            vertices[v_idx].mVelocity *= (14.0f / std::sqrt(speed_sq));
                         }
                     }
                 }

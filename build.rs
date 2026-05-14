@@ -62,17 +62,17 @@ fn main() {
         println!("cargo:rustc-link-lib=static=joltc");
         println!("cargo:rustc-link-search=native={}", lib_dir.display());
     }
-    // 👇 添加下面这两行：强制 Windows 下的 Zig 使用 GNU ABI 绕开 MSVC 对齐 Bug
-    #[cfg(target_os = "windows")]
-    {
-        // Windows 下使用的 target 工具链而定 (MSVC 或 GNU)
-        // 如果是 gnu (mingw)，通常需要 stdc++
-        let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap();
-        if target_env == "gnu" {
-            println!("cargo:rustc-link-lib=stdc++");
-        }
-        // MSVC 环境通常会自动链接 C++ 运行时，但有时需要显式处理
-    }
+    // // 👇 添加下面这两行：强制 Windows 下的 Zig 使用 GNU ABI 绕开 MSVC 对齐 Bug
+    // #[cfg(target_os = "windows")]
+    // {
+    //     // Windows 下使用的 target 工具链而定 (MSVC 或 GNU)
+    //     // 如果是 gnu (mingw)，通常需要 stdc++
+    //     let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap();
+    //     if target_env == "gnu" {
+    //         println!("cargo:rustc-link-lib=stdc++");
+    //     }
+    //     // MSVC 环境通常会自动链接 C++ 运行时，但有时需要显式处理
+    // }
     #[cfg(target_os = "linux")]
     {
         // 告诉 Rust 静态链接你的两个库

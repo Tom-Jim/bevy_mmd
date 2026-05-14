@@ -9,6 +9,15 @@
 [English](#english) | [中文](#中文)
 
 ![Physics Demo](docs/physics_demo_wip.gif)
+
+### Program Effect Demo / 程序效果演示
+
+<img src="assets/records/output.gif" width="100%" alt="Physics Demo">
+
+> *Current physics state: Soft body welding and shape matching in action. Yes, the skirt still clips sometimes, we are fixing it!*
+
+> *当前物理状态：软体和动作可以运动，但是衣服崩溃下拉的问题仍需修复*
+
 > *Current physics state: Soft body welding and shape matching in action. Yes, the skirt still clips sometimes, we are fixing it!*
 
 > *当前物理状态：软体和动作可以运动，但是衣服崩溃下拉的问题仍需修复*

@@ -112,11 +112,47 @@ fn update_record_timer(
             }
             println!("✨ 临时图片清理完毕！");
         }
-        //app_exit.write(AppExit::Success);
+        app_exit.write(AppExit::Success);
     }
 }
 
-/// 真正调用系统底层 FFmpeg 的执行函数
+// /// 真正调用系统底层 FFmpeg 的执行函数
+// fn synthesize_video() {
+//     let output_dir = "assets/records";
+//     if let Err(e) = fs::create_dir_all(output_dir) {
+//         println!("❌ 无法创建录制文件夹: {}", e);
+//         return;
+//     }
+
+//     let output_file = format!("{}/output_10s.mp4", output_dir);
+
+//     let child = Command::new("ffmpeg")
+//         .args([
+//             "-y",
+//             "-framerate",
+//             "60",
+//             "-i",
+//             "assets/records/frame_%04d.png",
+//             "-c:v",
+//             "libx264",
+//             "-pix_fmt",
+//             "yuv420p",
+//             &output_file,
+//         ])
+//         .spawn();
+
+//     match child {
+//         Ok(mut process) => match process.wait() {
+//             Ok(status) if status.success() => {
+//                 println!("🎬 完美！MP4 已成功保存到: {}", output_file);
+//             }
+//             Ok(status) => println!("❌ FFmpeg 运行失败，退出码: {}", status),
+//             Err(e) => println!("❌ 等待 FFmpeg 结束时发生错误: {}", e),
+//         },
+//         Err(e) => println!("❌ 启动 FFmpeg 失败: {}", e),
+//     }
+// }
+/// 真正调用系统底层 FFmpeg 的执行函数 (生成无限循环的 GIF)
 fn synthesize_video() {
     let output_dir = "assets/records";
     if let Err(e) = fs::create_dir_all(output_dir) {
@@ -124,19 +160,18 @@ fn synthesize_video() {
         return;
     }
 
-    let output_file = format!("{}/output_10s.mp4", output_dir);
+    // 1. 将后缀改为 .gif
+    let output_file = format!("{}/output.gif", output_dir);
 
     let child = Command::new("ffmpeg")
         .args([
             "-y",
-            "-framerate",
-            "60",
-            "-i",
-            "assets/records/frame_%04d.png",
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
+            "-framerate", "30", // 建议降至 30 帧，否则 GIF 文件体积过大
+            "-i", "assets/records/frame_%04d.png",
+            // 2. 添加 FFmpeg 滤镜，先生成调色板再应用，保证 GIF 色彩清晰不失真
+            "-vf", "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse", 
+            // 3. 设置无限循环播放 (0代表无限循环)
+            "-loop", "0", 
             &output_file,
         ])
         .spawn();
@@ -144,7 +179,7 @@ fn synthesize_video() {
     match child {
         Ok(mut process) => match process.wait() {
             Ok(status) if status.success() => {
-                println!("🎬 完美！MP4 已成功保存到: {}", output_file);
+                println!("🎬 完美！GIF 已成功保存到: {}", output_file);
             }
             Ok(status) => println!("❌ FFmpeg 运行失败，退出码: {}", status),
             Err(e) => println!("❌ 等待 FFmpeg 结束时发生错误: {}", e),

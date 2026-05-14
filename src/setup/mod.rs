@@ -15,21 +15,6 @@ pub fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PmxMaterial>>,
 ) {
-    unsafe {
-        let size = Vec3::new(10.0, 1.0, 10.0); // 比如创建一个大地板
-        let body_ptr = create_box_body(size.x, size.y, size.z);
-        commands.spawn((
-            JoltBody {
-                ptr: body_ptr,
-                size,
-            },
-            Transform::from_xyz(0.0, -1.0, 0.0), // 放在脚下
-        ));
-    }
-
-    // 把旗帜软体创建委托给 softbody 模块
-    crate::softbody::spawn_flag_softbody(&mut commands);
-
     // 把 PMX 加载与 Mesh/Material 构建委托给 pmx 模块
     crate::pmx::init_pmx(&mut commands, &asset_server, &mut meshes, &mut materials);
     crate::vmd::init_vmd(&mut commands);
