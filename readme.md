@@ -13,13 +13,16 @@
 <img src="assets/records/output.gif" width="100%" alt="Physics Demo">
 
 > 🚧 **Current WIP (Work In Progress) & Known Issues:**
-> I am actively tuning the Continuous Collision Detection (CCD) and increasing solver iterations to resolve high-velocity mesh clipping issues (where the skirt penetrates the model). There are also occasional physics-step desyncs causing entities to fall through static colliders, which I am patching in the upcoming commits. Thank you for your patience!
+> 1. **No Collision Detection Yet:** The engine currently implements pure soft-body constraints but does **not** yet have collision detection enabled. Mesh clipping is expected at this stage.
+> 2. **Soft Body Detachment Bug:** While the non-soft body parts and skeletal animations work perfectly, the soft body parts (e.g., skirts, hair) currently suffer from a bug where they occasionally detach and fall off the main model. I am actively working on fixing the kinematic root pinning logic in the upcoming commits. 
 
 > 🚧 **当前开发状态与已知问题 (WIP):**
-> 目前正在积极调优连续碰撞检测 (CCD) 并增加求解器迭代次数，以解决高速运动下的网格穿模问题。同时，偶尔会出现物理步长不同步导致刚体掉落穿透静态碰撞体的 Bug，我将在接下来的提交中修复这些底层逻辑。
+> 1. **尚未实现碰撞检测：** 目前引擎仅实现了纯软体约束系统，**尚未**加入碰撞检测，因此会出现穿模现象。
+> 2. **软体掉落 Bug：** 模型的非软体部分和基础骨骼动作播放完全正常。但由于锚点绑定逻辑存在 Bug，软体部分（如裙摆、头发）目前会出现脱离模型并掉落虚空的现象。我正在集中精力修复这些软体根节点的绑定问题。
 
 > 🚧 **現在の開発状況と既知の問題 (WIP):**
-> 高速運動時のメッシュ貫通（クリッピング）問題を解決するため、現在 Continuous Collision Detection (CCD) の調整とソルバーの反復回数の増加に積極的に取り組んでいます。また、物理ステップの同期ズレにより、エンティティが静的コライダーをすり抜けて落下する問題が稀に発生しており、これらは次回のコミットで修正する予定です。
+> 1. **衝突判定（未実装）：** 現在は純粋なソフトボディ制約システムのみを実装しており、衝突判定（コリジョン）は**未実装**です。そのため、貫通（クリッピング）が発生します。
+> 2. **ソフトボディ脱落バグ：** 非ソフトボディ部分とスケルタルアニメーションは完全に正常に動作しています。しかし、アンカー固定ロジックのバグにより、ソフトボディ部分（スカートや髪など）がモデルから脱落・落下する現象が発生しています。現在、これらのルート固定問題の修正に注力しています。
 
 ### 🎯 Goal / 我们的愿景
 **To build the most performant, plug-and-play MMD rendering & physics middleware for the Bevy Engine using JoltPhysics.** We are moving away from traditional rigid-body proxy chains to true interconnected soft-body physics for skirts, hair, and clothing. **PRs are super welcome!**
@@ -36,7 +39,7 @@ This is an advanced, real-time 3D animation and physics player built with the [B
 * **PMX Model Loading**: Fully parses bones, vertices, faces, textures, materials, and rigid bodies.
 * **VMD Motion Playback**: Implements full skeletal animation playback with support for Forward Kinematics (FK) and Inverse Kinematics (IK) via Cyclic Coordinate Descent (CCD).
 * **Compute-Shader-less CPU Skinning**: High-performance CPU-side skinning mechanism that bridges raw PMX vertex data directly into Bevy's `Mesh3d` attributes.
-* **Advanced Soft Body Physics**: Replaces rigid body proxy chains with true interconnected soft-body physics for skirts, ribbons, sleeves, and hair.
+* **Advanced Soft Body Physics (In Development)**: Replaces rigid body proxy chains with true interconnected soft-body physics for skirts, ribbons, sleeves, and hair.
 
 ### 🧠 Soft Body Physics Deep Dive
 
@@ -46,10 +49,10 @@ Handling raw PMX meshes in a physics engine presents unique topological challeng
     PMX meshes often have disconnected triangles at UV seams or sharp edges. If fed directly into a physics engine, the cloth will instantly shatter into individual triangles. This project maps and welds vertices within a `0.001` spatial distance, converting complex disconnected rendering meshes into a single, unified topological fabric for the physics solver.
 2.  **Edge Compliance Tuning**:
     Instead of rigidly locking edge lengths (which causes the solver to explode under complex mesh deformations), the system applies a `0.2f` compliance factor to edge constraints. This gives the fabric a natural, slightly stretchable textile quality while preventing Jolt from freezing or exploding.
-3.  **Soft Shape Matching & Anti-Clipping**:
-    Because PMX clothing lacks full volumetric constraints and traditional collision capsules aren't perfectly mapped, we utilize a custom "Soft Shape Matching" algorithm. Free-falling vertices receive a gentle spring-like acceleration (`diff * 5.0f`) towards their intended animated skinning positions. This ensures the cloth organically follows the character's movement, sways with inertia, and inherently resists catastrophic clipping.
+3.  **Soft Shape Matching (Pose Tracking)**:
+    Because PMX clothing lacks full volumetric constraints, we utilize a custom "Soft Shape Matching" algorithm. Free-falling vertices receive a gentle spring-like acceleration (`diff * 5.0f`) towards their intended animated skinning positions. This ensures the cloth organically follows the character's movement and sways with inertia.
 4.  **Anchor Pinning (Kinematic Roots)**:
-    By analyzing bone weights and a comprehensive dictionary of clothing/hair keywords (supporting English, Chinese, and Japanese PMX naming conventions), the system intelligently identifies "root" vertices attached to the torso/head and pins their inverse mass to `0.0`.
+    By analyzing bone weights and a comprehensive dictionary of clothing/hair keywords (supporting English, Chinese, and Japanese PMX naming conventions), the system intelligently identifies "root" vertices attached to the torso/head and pins their inverse mass to `0.0` (Currently debugging detachment issues).
 
 ### 🚀 How to Run
 
@@ -73,7 +76,7 @@ Handling raw PMX meshes in a physics engine presents unique topological challeng
 * **PMX 模型加载**：完整解析骨骼、顶点、面、贴图、材质以及刚体等原生数据。
 * **VMD 动作回放**：实现完整的骨骼动画播放，支持正向运动学 (FK) 以及基于循环坐标下降 (CCD) 的反向运动学 (IK)。
 * **纯 CPU 蒙皮架构**：高性能的 CPU 端蒙皮机制，将 PMX 原始顶点动画数据高效、直接地映射到 Bevy 的 `Mesh3d` 属性中。
-* **高级软体物理模拟**：抛弃了传统的刚体碰撞代理链，使用真正相互连接的软体物理来模拟裙摆、丝带、袖子和头发。
+* **高级软体物理模拟 (开发中)**：抛弃了传统的刚体碰撞代理链，使用真正相互连接的软体物理来模拟裙摆、丝带、袖子和头发。
 
 ### 🧠 软体物理架构深度解析
 
@@ -83,10 +86,10 @@ Handling raw PMX meshes in a physics engine presents unique topological challeng
     PMX 网格在 UV 接缝处通常有大量重叠但相互断开的重复顶点。如果不作处理直接丢进物理引擎，布料会瞬间碎裂成无数个独立的三角形。本项目在传入物理引擎前，会通过哈希表自动“缝合”空间距离在 `0.001` 以内的顶点，将破碎的渲染网格在物理层面上转变为一整块拓扑连通的完美布料。
 2.  **柔顺度约束回调 (Edge Compliance)**：
     如果强制锁定边缘长度，复杂的衣物网格在角色大幅度运动时极易导致物理求解器计算爆炸或锁死成硬块。系统为边缘约束引入了 `0.2f` 的柔顺度 (Compliance)，使得软体具备类似真实纺织品的微观弹性，极大地增强了物理稳定性。
-3.  **软性形状匹配与防穿模 (Soft Shape Matching)**：
-    由于 PMX 衣服缺乏完整的体积约束，且没有手工包围盒，程序采用了一套自定义的“软性形状匹配”算法。对处于自由落体状态的布料顶点，施加一个朝着其“蒙皮动画目标坐标”的柔和弹簧加速度 (`diff * 5.0f`)。这保证了衣物既能随着角色的运动产生真实的物理惯性与重力下垂，又能在偏离过大时被温柔地拉回，从根本上防止了严重的穿模和衣服脱离模型的问题。
+3.  **软性形状匹配 (Pose Tracking)**：
+    由于 PMX 衣服缺乏完整的体积约束，程序采用了一套自定义的“软性形状匹配”算法。对处于自由落体状态的布料顶点，施加一个朝着其“蒙皮动画目标坐标”的柔和弹簧加速度 (`diff * 5.0f`)。这保证了衣物既能随着角色的运动产生真实的物理惯性与重力下垂。
 4.  **智能根节点锚定 (Anchor Pinning)**：
-    通过分析顶点骨骼权重和内置的超大跨语言词典（涵盖中、日、英对衣服和头发的命名习惯），系统能智能识别哪些顶点属于“受力根部”（如发根、腰带），并将其物理质量的倒数设为 `0.0`，将其精准钉死在角色的躯干大骨骼上。
+    通过分析顶点骨骼权重和内置的超大跨语言词典（涵盖中、日、英对衣服和头发的命名习惯），系统能智能识别哪些顶点属于“受力根部”（如发根、腰带），并将其物理质量的倒数设为 `0.0`，将其精准钉死在角色的躯干大骨骼上（当前正在 Debug 偶发的掉落脱离问题）。
 
 ### 🚀 运行指南
 
@@ -110,7 +113,7 @@ Handling raw PMX meshes in a physics engine presents unique topological challeng
 * **PMX モデル読み込み**: ボーン、頂点、面、テクスチャ、マテリアル、剛体などのネイティブデータを完全に解析します。
 * **VMD モーション再生**: フルスケルタルアニメーション再生を実装し、フォワードキネマティクス (FK) および Cyclic Coordinate Descent (CCD) ベースのインバースキネマティクス (IK) をサポートします。
 * **CPU スキニングアーキテクチャ**: PMX の生頂点データを Bevy の `Mesh3d` 属性に直接かつ効率的にマッピングする、高性能な CPU サイドスキニングメカニズム。
-* **高度なソフトボディ物理演算**: 従来の剛体プロキシチェーンを廃止し、真に相互接続されたソフトボディ物理を用いて、スカート、リボン、袖、髪の毛をシミュレートします。
+* **高度なソフトボディ物理演算 (開発中)**: 従来の剛体プロキシチェーンを廃止し、真に相互接続されたソフトボディ物理を用いて、スカート、リボン、袖、髪の毛をシミュレートします。
 
 ### 🧠 ソフトボディ物理演算の深掘り
 
@@ -120,10 +123,10 @@ Handling raw PMX meshes in a physics engine presents unique topological challeng
     PMX メッシュは多くの場合、UV シームで重なり合いながらも切り離された頂点を持っています。そのまま物理エンジンに入れると、布は即座に無数の独立した三角形に粉砕されます。本プロジェクトでは、空間距離が `0.001` 以内の頂点をハッシュテーブルで自動的に結合し、断片化されたレンダリングメッシュを物理ソルバー用の単一の統合されたトポロジーに変換します。
 2.  **エッジコンプライアンス調整 (Edge Compliance)**:
     エッジの長さを強制的にロックすると、キャラクターの激しい動きによって物理ソルバーの計算が爆発（破綻）しやすくなります。システムはエッジ制約に `0.2f` のコンプライアンス係数を導入し、実際の織物のような微視的な伸縮性をソフトボディに持たせることで、物理的な安定性を大幅に向上させています。
-3.  **ソフトシェイプマッチングと貫通防止 (Soft Shape Matching)**:
-    PMX の衣服には完全な体積制約がなく、手動のコリジョンカプセルも完璧にマッピングされていないため、独自の「ソフトシェイプマッチング」アルゴリズムを採用しています。自由落下状態にある布の頂点に対し、本来のアニメーションスキン位置に向かうバネのような穏やかな加速度 (`diff * 5.0f`) を適用します。これにより、布はキャラクターの動きに追従して自然な慣性を生み出しつつ、壊滅的なメッシュ貫通を根本的に防ぎます。
+3.  **ソフトシェイプマッチング (Pose Tracking)**:
+    PMX の衣服には完全な体積制約がないため、独自の「ソフトシェイプマッチング」アルゴリズムを採用しています。自由落下状態にある布の頂点に対し、本来のアニメーションスキン位置に向かうバネのような穏やかな加速度 (`diff * 5.0f`) を適用します。これにより、布はキャラクターの動きに追従して自然な慣性を生み出します。
 4.  **アンカーピン留め (Kinematic Roots)**:
-    ボーンウェイトと、衣服や髪の毛に関する多言語キーワード辞書（日・英・中の PMX 命名規則に対応）を分析することで、システムは胴体や頭部に付着している「ルート（根元）」頂点をインテリジェントに特定し、その逆質量 (Inverse Mass) を `0.0` に設定して正確にピン留めします。
+    ボーンウェイトと、衣服や髪の毛に関する多言語キーワード辞書（日・英・中の PMX 命名規則に対応）を分析することで、システムは胴体や頭部に付着している「ルート（根元）」頂点をインテリジェントに特定し、その逆質量 (Inverse Mass) を `0.0` に設定して正確にピン留めします（現在、脱落問題のデバッグ中）。
 
 ### 🚀 実行方法
 
