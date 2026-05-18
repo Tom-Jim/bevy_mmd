@@ -63,7 +63,7 @@ Handling raw PMX meshes in a physics engine presents unique topological challeng
     ```
 2.  **Install Toolchains**: Ensure your system has `Rust` and `Zig` installed (Zig is used to compile the C++ Jolt Physics engine).
 3.  **Prepare Assets**: Place your `.pmx` model (and its textures) and `.vmd` motion files into the `assets` folder.
-4.  **Configure Paths**: Open the `assets/config.toml` file and update the `pmx` and `vmd` fields to match your asset paths.
+4.  **Configure Paths**: Open the `src/config.toml` file and update the `pmx` and `vmd` fields to match your asset paths.
 5.  **Build & Run**: Grant execution permissions to the script and run it:
     ```bash
     chmod +x run.sh
@@ -107,7 +107,7 @@ Handling raw PMX meshes in a physics engine presents unique topological challeng
     ```
 2.  **安装工具链**：确保你的系统已安装 `Rust` 和 `Zig`（Zig 用于交叉编译 Jolt Physics 的 C++ 底层）。
 3.  **准备资源**：将你的 `.pmx` 模型文件及其所有贴图，以及 `.vmd` 动作文件放入 `assets` 文件夹中。
-4.  **配置路径**：打开 `assets/config.toml` 配置文件，在对应字段填入你的模型和动作文件路径。
+4.  **配置路径**：打开 `src/config.toml` 配置文件，在对应字段填入你的模型和动作文件路径。
 5.  **一键运行**：赋予脚本执行权限并启动程序：
     ```bash
     chmod +x run.sh
@@ -151,7 +151,7 @@ Handling raw PMX meshes in a physics engine presents unique topological challeng
     ```
 2.  **ツールチェーンのインストール**: システムに `Rust` と `Zig` がインストールされていることを確認してください。
 3.  **アセットの準備**: `.pmx` モデルファイルとすべてのテクスチャ、および `.vmd` モーションファイルを `assets` フォルダに配置します。
-4.  **パスの設定**: `assets/config.toml` ファイルを開き、`pmx` および `vmd` フィールドにアセットのパスを記入します。
+4.  **パスの設定**: `src/config.toml` ファイルを開き、`pmx` および `vmd` フィールドにアセットのパスを記入します。
 5.  **実行**: スクリプトに実行権限を付与し、起動します。
     ```bash
     chmod +x run.sh
