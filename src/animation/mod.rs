@@ -29,9 +29,10 @@ pub fn skin_update_system(
     mut playback: Option<ResMut<VmdPlayback>>,
     skeleton: Option<Res<PmxSkeleton>>,
     mut shared_skin: Option<ResMut<PmxSharedSkin>>,
-    mut hair_data: Option<ResMut<HairPhysicsData>>,
+    hair_data: Option<ResMut<HairPhysicsData>>,
+    cfg: Res<crate::config::Config>,
 ) {
-    let (Some(mut pb), Some(skel), Some(mut skin)) =
+    let (Some(pb), Some(skel), Some(skin)) =
         (playback.as_mut(), skeleton.as_ref(), shared_skin.as_mut())
     else {
         return;
@@ -282,6 +283,10 @@ pub fn skin_update_system(
                 all_sb_indices.len() as i32,
                 is_first, // 告诉 C++ 这次是要瞬移还是施加牵引力
                 time.delta_secs(),
+                cfg.softbody.position_pull,
+                cfg.softbody.velocity_pull,
+                cfg.softbody.damping,
+                cfg.softbody.max_speed,
             );
 
             // 推进物理引擎模拟，确保 PBD 约束投影能够修正形状并保持拓扑大小不变
@@ -307,7 +312,8 @@ pub fn skin_update_system(
                     if pmx_idx < skin.skinned_positions.len() {
                         // 强制覆写 PmxSharedSkin 里的坐标，这样下一步 apply_skin_to_meshes 就会渲染物理布料
                         // 叠加物理软体坐标与顶点相对于物理点的初始偏移，保证内衬等厚度不丢失
-                        skin.skinned_positions[pmx_idx] = [px + offset.x, py + offset.y, pz + offset.z];
+                        skin.skinned_positions[pmx_idx] =
+                            [px + offset.x, py + offset.y, pz + offset.z];
                     }
                 }
             }

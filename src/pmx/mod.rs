@@ -1,8 +1,7 @@
-use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use PMXUtil::reader::ModelInfoStage;
-use PMXUtil::types::{Bone, Face, Material, MaterialFlags, SphereModeKind, ToonMode};
+use PMXUtil::types::{MaterialFlags, SphereModeKind, ToonMode};
 
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::Indices;
@@ -13,12 +12,10 @@ use crate::animation::{
     build_ik_constraints, convert_vertex_weight, format_vertex_weight, group_faces_by_material,
 };
 use crate::components::*;
+use crate::config::Config;
 use crate::softbody;
 
-// PMX/VMD 路径与日志文件（放到 src/pmx/ 下）
-const PMX_FILE_PATH: &str =
-    "模型/星穹铁道—长夜月_by_崩坏：星穹铁道_b2f53bd03831e138dd0c72f0782bc894/星穹铁道—长夜月2.pmx";
-const GLOBAL_EMISSIVE_STRENGTH: f32 = 0.5;
+// PMX 日志路径（写入到 src/pmx/pmx_info.txt）
 const PMX_LOG_PATH: &str = "src/pmx/pmx_info.txt";
 
 /// 加载 PMX 文件并在 ECS 中构建材质/网格/蒙皮/骨架等资源。
@@ -28,12 +25,14 @@ pub fn init_pmx(
     asset_server: &Res<AssetServer>,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<PmxMaterial>>,
+    cfg: &Config,
 ) {
     // ── 打开 PMX 文件 ─────────────────────────────────────────────────────────
-    let pmx_path = if Path::new(PMX_FILE_PATH).is_absolute() {
-        PMX_FILE_PATH.to_string()
+    let pmx_file = &cfg.paths.pmx;
+    let pmx_path = if Path::new(pmx_file).is_absolute() {
+        pmx_file.to_string()
     } else {
-        format!("assets/{}", PMX_FILE_PATH)
+        format!("assets/{}", pmx_file)
     };
     let loader = ModelInfoStage::open(pmx_path.clone())
         .unwrap_or_else(|| panic!("无法加载 PMX：{}", pmx_path));
@@ -275,7 +274,7 @@ pub fn init_pmx(
     // ═════════════════════════════════════════════════════════════════════════
     // 构建 Bevy 材质列表
     // ═════════════════════════════════════════════════════════════════════════
-    let model_dir = PathBuf::from(PMX_FILE_PATH)
+    let model_dir = PathBuf::from(&cfg.paths.pmx)
         .parent()
         .expect("PMX 路径无父目录")
         .to_path_buf();
@@ -328,7 +327,7 @@ pub fn init_pmx(
                 ambient: Vec4::new(mat.ambient[0], mat.ambient[1], mat.ambient[2], 1.0),
                 edge_color: Vec4::from(mat.edge_color),
                 flags: UVec4::new(sphere_mode, 0, u32::from(has_edge), u32::from(use_toon)),
-                emissive_strength: GLOBAL_EMISSIVE_STRENGTH,
+                emissive_strength: cfg.render.global_emissive_strength,
                 _pad0: Vec3::ZERO,
             },
         }));

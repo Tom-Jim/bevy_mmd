@@ -83,7 +83,7 @@ pub fn spawn_flag_softbody(commands: &mut Commands) {
 pub fn spawn_hair_from_pmx(
     commands: &mut Commands,
     vertices: &Vec<Vertex>,
-    faces: &Vec<Face>,
+    _faces: &Vec<Face>,
     materials_pmx: &Vec<Material>,
     face_groups: &Vec<(usize, Vec<u32>)>,
     bones: &Vec<Bone>,
@@ -91,21 +91,58 @@ pub fn spawn_hair_from_pmx(
     // 包含所有的软体关键字，包括内衬和工牌
     // 主软体关键字（构成物理网格）
     let soft_keywords = [
-        "发", "髪", "毛", "裙", "衣", "披肩", "摆", "擺", "辫", "辮", "羽", 
-        "链", "鏈", "带", "帶", "袖", "尾", "飘", "飄", "丝", "絲", "结", 
-        "結", "布", "流苏", "タッセル", "ヘア", "スカート", "服", "リボン", 
-        "マント", "紐", "ネクタイ", "フリル", "ケープ"
+        "发",
+        "髪",
+        "毛",
+        "裙",
+        "衣",
+        "披肩",
+        "摆",
+        "擺",
+        "辫",
+        "辮",
+        "羽",
+        "链",
+        "鏈",
+        "带",
+        "帶",
+        "袖",
+        "尾",
+        "飘",
+        "飄",
+        "丝",
+        "絲",
+        "结",
+        "結",
+        "布",
+        "流苏",
+        "タッセル",
+        "ヘア",
+        "スカート",
+        "服",
+        "リボン",
+        "マント",
+        "紐",
+        "ネクタイ",
+        "フリル",
+        "ケープ",
     ];
 
     // 这些材质即使包含了 soft_keywords，也不应该作为主软体（它们要么是硬的，要么是独立的）
-    let exclude_keywords = [
-        "衣饰", "衣飾", "鞋", "手套", "耳", "蝶"
-    ];
+    let exclude_keywords = ["衣饰", "衣飾", "鞋", "手套", "耳", "蝶"];
 
     // 这些是附属品（Accessories），它们不会自己生成物理网格，而是通过找最近距离的顶点“寄生”到主软体上。
     // 比如：挂在裙子上的工牌/标牌，内衬，或者绑在头发上但跟随头发运动的发饰。
     let accessory_keywords = [
-        "biaoq", "内著", "內著", "衣金屬", "腰飾", "发饰", "髪飾", "发饰+", "髪飾+"
+        "biaoq",
+        "内著",
+        "內著",
+        "衣金屬",
+        "腰飾",
+        "发饰",
+        "髪飾",
+        "发饰+",
+        "髪飾+",
     ];
 
     let mut main_mat_indices = Vec::new();
@@ -129,9 +166,38 @@ pub fn spawn_hair_from_pmx(
 
     // 定义核心承重骨骼关键字
     let core_keywords = [
-        "上半身", "下半身", "腰", "胸", "頭", "首", "肩", "带_根", "结_根", "饰_根", "裙_根", "裙_0",
-        "後擺_根", "後擺1-1", "後擺2-1", "後擺3-1", "後擺4-1", "後擺5-1", "後擺6-1", "後擺7-1",
-        "飘带_0", "飄帶_0", "腕", "肘", "手", "足", "腿", "膝", "花", "結", "结", "帶1-1",
+        "上半身",
+        "下半身",
+        "腰",
+        "胸",
+        "頭",
+        "首",
+        "肩",
+        "带_根",
+        "结_根",
+        "饰_根",
+        "裙_根",
+        "裙_0",
+        "後擺_根",
+        "後擺1-1",
+        "後擺2-1",
+        "後擺3-1",
+        "後擺4-1",
+        "後擺5-1",
+        "後擺6-1",
+        "後擺7-1",
+        "飘带_0",
+        "飄帶_0",
+        "腕",
+        "肘",
+        "手",
+        "足",
+        "腿",
+        "膝",
+        "花",
+        "結",
+        "结",
+        "帶1-1",
     ];
 
     let mut is_core = vec![false; bones.len()];
@@ -195,11 +261,11 @@ pub fn spawn_hair_from_pmx(
         let v = &vertices[pmx_idx as usize];
         let mat_idx = vertex_to_mat.get(&(pmx_idx as u32)).copied().unwrap_or(0);
         let is_hair = is_hair_mat.get(&mat_idx).copied().unwrap_or(false);
-        
+
         let qx = (v.position[0] * 100000.0).round() as i32;
         let qy = (v.position[1] * 100000.0).round() as i32;
         let qz = ((-v.position[2]) * 100000.0).round() as i32;
-        
+
         let q_pos = if is_hair {
             // 头发必须区分材质，否则前发后发会粘连成一团导致抽搐和往下掉
             (qx, qy, qz, mat_idx as i32)
@@ -212,7 +278,7 @@ pub fn spawn_hair_from_pmx(
         let mut is_anchored = false;
         for k in 0..4 {
             if bi[k] >= 0 && (bi[k] as usize) < is_anchor.len() && is_anchor[bi[k] as usize] {
-                if bw[k] > 0.05 {
+                if bw[k] > 0.3 {
                     is_anchored = true;
                     break;
                 }
@@ -221,13 +287,13 @@ pub fn spawn_hair_from_pmx(
 
         if let Some(&sb_idx) = pos_to_sb.get(&q_pos) {
             pmx_to_sb_map.insert(pmx_idx, sb_idx);
-            
+
             // 计算相对偏移
             let sx = sb_vertices[sb_idx as usize * 3];
             let sy = sb_vertices[sb_idx as usize * 3 + 1];
             let sz = sb_vertices[sb_idx as usize * 3 + 2];
             let offset = Vec3::new(v.position[0] - sx, v.position[1] - sy, -v.position[2] - sz);
-            
+
             sb_to_pmx_map[sb_idx as usize].push((pmx_idx as usize, offset));
 
             if is_anchored && sb_inv_masses[sb_idx as usize] != 0.0 {
@@ -278,7 +344,7 @@ pub fn spawn_hair_from_pmx(
             acc_pmx_indices.insert(idx);
         }
     }
-    
+
     // 如果没有生成任何主软体粒子，但是有附属品，说明有问题，直接返回
     if sb_vertices.is_empty() {
         return;
@@ -297,14 +363,14 @@ pub fn spawn_hair_from_pmx(
         // 寻找距离最近的主软体粒子
         let mut min_dist_sq = f32::MAX;
         let mut nearest_sb_idx = 0;
-        
+
         // 由于这只是在初始化时运行一次，暴力寻找是可以接受的
         for i in 0..(sb_vertices.len() / 3) {
             // 确保头发饰品挂在头发上，衣服饰品挂在衣服上
             let sb_pmx = sb_to_pmx_map[i][0].0;
             let sb_mat_idx = vertex_to_mat.get(&(sb_pmx as u32)).copied().unwrap_or(0);
             let sb_is_hair = is_hair_mat.get(&sb_mat_idx).copied().unwrap_or(false);
-            
+
             if is_acc_hair != sb_is_hair {
                 continue; // 跨界挂载会导致衣服拉扯头发，或者胸花飞到头发上
             }
@@ -318,7 +384,7 @@ pub fn spawn_hair_from_pmx(
                 nearest_sb_idx = i as u32;
             }
         }
-        
+
         if min_dist_sq == f32::MAX {
             // 回退到全局搜索（如果在所属分类找不到最近点）
             for i in 0..(sb_vertices.len() / 3) {
@@ -334,12 +400,12 @@ pub fn spawn_hair_from_pmx(
         }
 
         pmx_to_sb_map.insert(pmx_idx, nearest_sb_idx);
-        
+
         let sx = sb_vertices[nearest_sb_idx as usize * 3];
         let sy = sb_vertices[nearest_sb_idx as usize * 3 + 1];
         let sz = sb_vertices[nearest_sb_idx as usize * 3 + 2];
         let offset = Vec3::new(vx - sx, vy - sy, vz - sz);
-        
+
         sb_to_pmx_map[nearest_sb_idx as usize].push((pmx_idx as usize, offset));
     }
 
@@ -350,11 +416,14 @@ pub fn spawn_hair_from_pmx(
     let mut adj = vec![Vec::new(); num_sb_verts];
     for chunk in sb_indices.chunks_exact(3) {
         let (v0, v1, v2) = (chunk[0] as usize, chunk[1] as usize, chunk[2] as usize);
-        adj[v0].push(v1); adj[v0].push(v2);
-        adj[v1].push(v0); adj[v1].push(v2);
-        adj[v2].push(v0); adj[v2].push(v1);
+        adj[v0].push(v1);
+        adj[v0].push(v2);
+        adj[v1].push(v0);
+        adj[v1].push(v2);
+        adj[v2].push(v0);
+        adj[v2].push(v1);
     }
-    
+
     let mut visited = vec![false; num_sb_verts];
     for i in 0..num_sb_verts {
         if !visited[i] {

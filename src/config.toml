@@ -1,0 +1,36 @@
+# Global project configuration (TOML)
+
+[paths]
+# 以 PMX 文件相对于 assets/ 目录的路径为主；也可以写成绝对路径
+pmx = "模型/星穹铁道—长夜月_by_崩坏：星穹铁道_b2f53bd03831e138dd0c72f0782bc894/星穹铁道—长夜月2.pmx"
+vmd = "VMD/贝洛伯格第三节.vmd"
+
+[softbody]
+# 软体形状匹配参数
+# 每帧位置牵引（用于把物理点朝骨骼驱动的目标位置拉近）
+position_pull = 0.2
+# 速度牵引系数（会乘以 delta_time）
+velocity_pull = 6.0
+# 空气阻尼（每帧乘积）
+damping = 0.95
+# 最大速度（m/s），超过时按比例缩放到此速度
+max_speed = 18.0
+# 约束柔顺度（越小越硬）
+stretch_compliance = 0.000001
+shear_compliance = 0.0
+bend_compliance = 0.008
+# Jolt 迭代次数（越高约束越接近真实，但开销更大）
+iterations = 80
+# 重力系数（1.0 为真实重力）
+gravity_factor = 1.0
+# 是否让 Jolt 自动更新质心位置（推荐 false）
+update_position = false
+
+[render]
+# 全局材质自发光强度
+global_emissive_strength = 0.5
+# 场景光照参数
+point_light_intensity = 2000000.0
+point_light_range = 500.0
+ambient_brightness = 200.0
+directional_illuminance = 10000.0

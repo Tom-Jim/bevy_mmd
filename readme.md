@@ -56,13 +56,20 @@ Handling raw PMX meshes in a physics engine presents unique topological challeng
 
 ### 🚀 How to Run
 
-1.  **Install Toolchains**: Ensure you have `Rust` and `Zig` installed (Zig is used as the C/C++ cross-compiler for Jolt Physics).
-2.  **Prepare Assets**: Place your `.pmx` model and its corresponding textures into the `assets` folder. Place your `.vmd` motion file into the same directory.
-3.  **Configure Paths**: Update the `PMX_FILE_PATH` and `VMD_FILE_PATH` constants in `src/main.rs` to point to your files.
-4.  **Build & Run**:
+1.  **Clone the Repository**: 
     ```bash
-    cargo run --release
+    git clone [https://github.com/Tom-Jim/bevy_mmd.git](https://github.com/Tom-Jim/bevy_mmd.git)
+    cd bevy_mmd
     ```
+2.  **Install Toolchains**: Ensure your system has `Rust` and `Zig` installed (Zig is used to compile the C++ Jolt Physics engine).
+3.  **Prepare Assets**: Place your `.pmx` model (and its textures) and `.vmd` motion files into the `assets` folder.
+4.  **Configure Paths**: Open the `assets/config.toml` file and update the `pmx` and `vmd` fields to match your asset paths.
+5.  **Build & Run**: Grant execution permissions to the script and run it:
+    ```bash
+    chmod +x run.sh
+    ./run.sh
+    ```
+    *(Note: If you encounter memory crashes like soft-body detaching, run `./run.sh --debug` to automatically capture LLDB backtraces).*
 
 ---
 
@@ -93,13 +100,20 @@ Handling raw PMX meshes in a physics engine presents unique topological challeng
 
 ### 🚀 运行指南
 
-1.  **安装工具链**：确保你的系统已安装 `Rust` 和 `Zig`（Zig 被用作编译 Jolt Physics C++ 代码的跨平台 C/C++ 编译器）。
-2.  **准备资源**：将你的 `.pmx` 模型文件及其所有贴图放入 `assets` 文件夹中。将 `.vmd` 动作文件也放入该目录。
-3.  **配置路径**：修改 `src/main.rs` 中的 `PMX_FILE_PATH` 和 `VMD_FILE_PATH` 常量，将其指向你放入的模型和动作文件。
-4.  **编译并运行**：
+1.  **克隆源码**：
     ```bash
-    cargo run --release
+    git clone [https://github.com/Tom-Jim/bevy_mmd.git](https://github.com/Tom-Jim/bevy_mmd.git)
+    cd bevy_mmd
     ```
+2.  **安装工具链**：确保你的系统已安装 `Rust` 和 `Zig`（Zig 用于交叉编译 Jolt Physics 的 C++ 底层）。
+3.  **准备资源**：将你的 `.pmx` 模型文件及其所有贴图，以及 `.vmd` 动作文件放入 `assets` 文件夹中。
+4.  **配置路径**：打开 `assets/config.toml` 配置文件，在对应字段填入你的模型和动作文件路径。
+5.  **一键运行**：赋予脚本执行权限并启动程序：
+    ```bash
+    chmod +x run.sh
+    ./run.sh
+    ```
+    *（提示：如果遇到软体掉落等内存闪退问题，请使用 `./run.sh --debug` 启动，脚本会自动抓取 LLDB 错误堆栈）。*
 
 ---
 
@@ -130,10 +144,17 @@ Handling raw PMX meshes in a physics engine presents unique topological challeng
 
 ### 🚀 実行方法
 
-1.  **ツールチェーンのインストール**: システムに `Rust` と `Zig` がインストールされていることを確認してください（Zig は Jolt Physics の C++ コードをコンパイルするためのクロスコンパイラとして使用されます）。
-2.  **アセットの準備**: `.pmx` モデルファイルとすべてのテクスチャを `assets` フォルダに配置します。`.vmd` モーションファイルも同じディレクトリに配置します。
-3.  **パスの設定**: `src/main.rs` 内の `PMX_FILE_PATH` および `VMD_FILE_PATH` 定数を、配置したファイルパスに更新します。
-4.  **ビルドと実行**:
+1.  **リポジトリのクローン**:
     ```bash
-    cargo run --release
+    git clone [https://github.com/Tom-Jim/bevy_mmd.git](https://github.com/Tom-Jim/bevy_mmd.git)
+    cd bevy_mmd
     ```
+2.  **ツールチェーンのインストール**: システムに `Rust` と `Zig` がインストールされていることを確認してください。
+3.  **アセットの準備**: `.pmx` モデルファイルとすべてのテクスチャ、および `.vmd` モーションファイルを `assets` フォルダに配置します。
+4.  **パスの設定**: `assets/config.toml` ファイルを開き、`pmx` および `vmd` フィールドにアセットのパスを記入します。
+5.  **実行**: スクリプトに実行権限を付与し、起動します。
+    ```bash
+    chmod +x run.sh
+    ./run.sh
+    ```
+    *（注：ソフトボディの脱落などのメモリクラッシュが発生した場合は、`./run.sh --debug` を実行して LLDB のバックトレースを自動的に取得してください）。*

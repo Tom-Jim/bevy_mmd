@@ -16,7 +16,7 @@ unsafe impl Sync for JoltSoftBody {}
 
 #[derive(Component)]
 pub struct JoltBody {
-    pub ptr: *mut c_void,
+    pub _ptr: *mut c_void,
     pub size: Vec3,
 }
 // 重点：手动标记线程安全，因为 Jolt 的 Body 指针在初始化后是线程安全的句柄
@@ -30,7 +30,7 @@ pub struct HairPhysicsData {
     pub root_pmx_indices: Vec<usize>,
     pub root_sb_indices: Vec<i32>,
     pub representative_pmx_indices: Vec<usize>, // 每个SB顶点对应一个代表性的PMX顶点(传给物理)
-    pub sb_to_pmx_map: Vec<Vec<(usize, bevy::math::Vec3)>>,         // 每个SB顶点对应的所有PMX顶点(用于渲染更新)
+    pub sb_to_pmx_map: Vec<Vec<(usize, bevy::math::Vec3)>>, // 每个SB顶点对应的所有PMX顶点(用于渲染更新)
     pub is_initialized: bool,
 }
 unsafe impl Send for HairPhysicsData {}

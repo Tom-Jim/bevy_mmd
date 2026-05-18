@@ -40,6 +40,10 @@ unsafe extern "C" {
         count: i32,
         is_first_frame: i32,
         delta_time: f32,
+        position_pull: f32,
+        velocity_pull: f32,
+        damping: f32,
+        max_speed: f32,
     );
 }
 

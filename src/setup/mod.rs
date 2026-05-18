@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_panorbit_camera::PanOrbitCamera;
 
 use crate::components::*;
-use crate::physics::*;
+use crate::config::Config;
 
 /// 场景初始化：加载 PMX、构建蒙皮、创建子 Mesh、加载 VMD、创建灯光/相机。
 ///
@@ -15,14 +15,24 @@ pub fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PmxMaterial>>,
 ) {
+    // 读取配置（assets/config.toml），并作为 Resource 注入 ECS
+    let cfg = Config::load_from_assets();
+    commands.insert_resource(cfg.clone());
+
     // 把 PMX 加载与 Mesh/Material 构建委托给 pmx 模块
-    crate::pmx::init_pmx(&mut commands, &asset_server, &mut meshes, &mut materials);
-    crate::vmd::init_vmd(&mut commands);
+    crate::pmx::init_pmx(
+        &mut commands,
+        &asset_server,
+        &mut meshes,
+        &mut materials,
+        &cfg,
+    );
+    crate::vmd::init_vmd(&mut commands, &cfg);
     // 灯光 & 相机
     commands.spawn((
         PointLight {
-            intensity: 2_000_000.0,
-            range: 500.0,
+            intensity: cfg.render.point_light_intensity,
+            range: cfg.render.point_light_range,
             shadows_enabled: false,
             ..default()
         },
@@ -30,12 +40,12 @@ pub fn setup(
     ));
     commands.spawn(AmbientLight {
         color: Color::WHITE,
-        brightness: 200.0,
+        brightness: cfg.render.ambient_brightness,
         ..default()
     });
     commands.spawn((
         DirectionalLight {
-            illuminance: 10000.0,
+            illuminance: cfg.render.directional_illuminance,
             shadows_enabled: false,
             ..default()
         },

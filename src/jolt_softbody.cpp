@@ -75,9 +75,9 @@ extern "C" {
 
         // 3. 自动生成约束 (Edge, Shear, Bend)
         SoftBodySharedSettings::VertexAttributes vertex_attributes;
-        vertex_attributes.mCompliance = 0.00001f;       // 拉伸柔顺度 (设为0尽可能保持原始长度)
-        vertex_attributes.mShearCompliance = 0.0000f;  // 剪切柔顺度
-        vertex_attributes.mBendCompliance = 0.005f;    // 弯曲柔顺度 (适当增加，让裙摆更自然柔和)
+        vertex_attributes.mCompliance = 0.000001f;       // 拉伸柔顺度 (设为0尽可能保持原始长度)
+        vertex_attributes.mShearCompliance = 0.0f;  // 剪切柔顺度
+        vertex_attributes.mBendCompliance = 0.008f;    // 弯曲柔顺度 (适当增加，让裙摆更自然柔和)
         shared_settings->CreateConstraints(&vertex_attributes, 1, SoftBodySharedSettings::EBendType::Distance);
 
         // 4. 计算初始状态
@@ -89,7 +89,7 @@ extern "C" {
 
         // 增加求解器内部迭代次数（默认是5）。这能在不破坏拓扑且 collision_steps=1 的情况下，
         // 极大增加布料约束的刚性，彻底解决重力导致的布料拉扯伸长和下垂垮塌问题。
-        creation_settings.mNumIterations = 40;
+        creation_settings.mNumIterations = 70;
 
         // 【关键设置】：不让 Jolt 自动更新软体的中心点 (CenterOfMass)。
         // 我们的软体是被钉死在动画骨架上的，如果 Jolt 自动计算 COM 位移，
@@ -196,7 +196,7 @@ extern "C" {
      * @param count 要更新的顶点数量
      * @param is_first_frame 是否为第一帧 (第一帧时需要瞬间移动软体，而不是施加牵引力)
      */
-    void update_soft_body_roots(void* physics_system_ptr, void* body_id_ptr, const float* all_pos, const int* all_idx, int count, int is_first_frame, float delta_time) 
+    void update_soft_body_roots(void* physics_system_ptr, void* body_id_ptr, const float* all_pos, const int* all_idx, int count, int is_first_frame, float delta_time, float position_pull, float velocity_pull, float damping, float max_speed)
     {
         if (!physics_system_ptr || !body_id_ptr || !all_pos || !all_idx || count <= 0) return;
 
@@ -235,18 +235,18 @@ extern "C" {
                         Vec3 diff = target_pos - vertices[v_idx].mPosition;
 
                         // 1. 位置牵引，保持骨架形状，适度拉扯
-                        vertices[v_idx].mPosition += diff * 0.10f;
+                        vertices[v_idx].mPosition += diff * position_pull;
 
                         // 2. 速度牵引 (累加而非覆盖，这样才能保留重力和惯性！)
-                        vertices[v_idx].mVelocity += diff * 5.0f * delta_time;
+                        vertices[v_idx].mVelocity += diff * velocity_pull * delta_time;
 
                         // 3. 空气阻尼
-                        vertices[v_idx].mVelocity *= 0.97f;
+                        vertices[v_idx].mVelocity *= damping;
 
                         // 4. 暴力限速：防止离心力过大导致布料甩飞
                         float speed_sq = vertices[v_idx].mVelocity.LengthSq();
-                        if (speed_sq > 200.0f) { // 最大速度限制 14m/s
-                            vertices[v_idx].mVelocity *= (14.0f / std::sqrt(speed_sq));
+                        if (speed_sq > max_speed * max_speed) {
+                            vertices[v_idx].mVelocity *= (max_speed / std::sqrt(speed_sq));
                         }
                     }
                 }

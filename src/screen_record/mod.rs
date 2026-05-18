@@ -42,7 +42,7 @@ fn save_frame_system(
         return;
     }
 
-    if let Ok(window_entity) = main_window.single() {
+    if let Ok(_window_entity) = main_window.single() {
         state.frame_count += 1;
         let path = format!("assets/records/frame_{:04}.png", state.frame_count);
         commands

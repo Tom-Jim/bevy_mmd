@@ -1,12 +1,12 @@
 use crate::components::*;
+use crate::config::Config;
 use bevy::prelude::*;
 use bevy::prelude::{Quat, Vec3};
 use std::collections::HashMap;
-use std::fs::File;
 use std::fs;
-use std::io::{BufReader, BufWriter,Write};
+use std::fs::File;
+use std::io::{BufReader, BufWriter, Write};
 use std::path::Path;
-const VMD_FILE_PATH: &str = "VMD/贝洛伯格第三节.vmd";
 const VMD_LOG_PATH: &str = "src/vmd/vmd_info.txt";
 
 // ─────────────────────────────────────────────
@@ -164,14 +164,15 @@ pub struct VmdMotionClip {
     /// 灯光关键帧（按帧号升序）
     pub lights: Vec<VmdLightKeyframe>,
 }
-pub fn init_vmd(commands: &mut Commands) {
+pub fn init_vmd(commands: &mut Commands, cfg: &Config) {
     // ═════════════════════════════════════════════════════════════════════════
     // 加载 VMD（放在 PMX 模块里以便写入同一目录的日志）
     // ═════════════════════════════════════════════════════════════════════════
-    let vmd_path = if Path::new(VMD_FILE_PATH).is_absolute() {
-        VMD_FILE_PATH.to_string()
+    let vmd_file = &cfg.paths.vmd;
+    let vmd_path = if Path::new(vmd_file).is_absolute() {
+        vmd_file.to_string()
     } else {
-        format!("assets/{}", VMD_FILE_PATH)
+        format!("assets/{}", vmd_file)
     };
     match VmdMotionClip::from_file(&vmd_path) {
         Ok(clip) => {
