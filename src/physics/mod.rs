@@ -31,7 +31,6 @@ unsafe extern "C" {
 
     pub fn step_physics(delta_time: f32);
 
-    // 同步发根坐标的 C 接口
     pub fn update_soft_body_roots(
         physics_system: *mut c_void,
         body_id: *mut c_void,
@@ -47,11 +46,7 @@ unsafe extern "C" {
     );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 辅助系统
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// 渲染软体形状 (用于 Debug 和线框预览)
+/// Draws soft-body wireframes for debug/preview.
 pub fn draw_soft_bodies(mut gizmos: Gizmos, query: Query<&JoltSoftBody>) {
     unsafe {
         let physics_system =
@@ -110,7 +105,7 @@ pub fn draw_soft_bodies(mut gizmos: Gizmos, query: Query<&JoltSoftBody>) {
     }
 }
 
-/// 渲染 Debug 碰撞体形状
+/// Draws debug collision shapes as wireframe cuboids.
 pub fn draw_debug_bodies(mut gizmos: Gizmos, query: Query<(&Transform, &JoltBody)>) {
     for (transform, body) in query.iter() {
         gizmos.cube(

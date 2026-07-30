@@ -11,19 +11,8 @@ use crate::physics::{
     get_soft_body_vertices, step_physics, update_soft_body_roots, PHYSICS_SYSTEM_PTR,
 };
 
-// ═════════════════════════════════════════════════════════════════════════════
-// skin_update_system — 每帧核心动画系统
-//
-// 执行步骤：
-//   1. 推进播放时间
-//   2. 从 VMD 采样各骨骼局部变换
-//   3. FK：父→子递推世界变换
-//   4. IK：CCD 求解
-//   5. 构建蒙皮矩阵
-//   6. 蒙皮：变换所有顶点位置和法线，写入 PmxSharedSkin
-//
-// 蒙皮只做一次（30921次变换），然后由 apply_skin_to_meshes 把结果分发给各 Mesh。
-// ═════════════════════════════════════════════════════════════════════════════
+/// Per-frame animation pipeline: advance playback → sample VMD → FK → IK → build skin matrices → CPU skin.
+/// Skinning is performed exactly once; `apply_skin_to_meshes` then copies the shared result to each sub-mesh.
 pub fn skin_update_system(
     time: Res<Time>,
     mut playback: Option<ResMut<VmdPlayback>>,
@@ -42,7 +31,7 @@ pub fn skin_update_system(
         return;
     }
 
-    // ── Step 1：更新播放时间 ─────────────────────────────────────────────────
+    // Advance playback time.
     pb.time_sec += time.delta_secs();
     let duration_sec = pb.clip.duration_frames as f32 / pb.fps;
     if duration_sec > 0.0 {
@@ -53,10 +42,10 @@ pub fn skin_update_system(
     println!("Current VMD Frame: {}", (t * fps) as u32);
     let n = skel.bones.len();
 
-    // ── Step 2：VMD 采样局部变换 ─────────────────────────────────────────────
-    // VMD 存的是每根骨骼相对于自身 rest 姿态的偏移：
-    //   local_translation：相对 rest_position 的额外位移
-    //   local_rotation：在绑定姿态上叠加的局部旋转
+    // Sample VMD local transforms.
+    // VMD stores each bone's delta from its rest pose:
+    //   local_translation: additional displacement relative to rest_position
+    //   local_rotation:    rotation layered on top of the bind pose
     let mut local_t = vec![Vec3::ZERO; n];
     let mut local_r = vec![Quat::IDENTITY; n];
     for (i, bone) in skel.bones.iter().enumerate() {
@@ -71,15 +60,15 @@ pub fn skin_update_system(
         }
     }
 
-    // ── Step 3：FK — 父→子递推世界变换 ──────────────────────────────────────
-    // 推导公式（设 P=父，C=子）：
-    //   C.world_rot = P.world_rot × C.local_rot
-    //   C.world_pos = P.world_pos + P.world_rot × (rest_offset + C.local_t)
-    //   rest_offset = C.rest_pos - P.rest_pos（绑定姿态父子间距，固定）
+    // FK: propagate world transforms parent → child.
+    // Formula (P = parent, C = child):
+    //   C.world_rot = P.world_rot * C.local_rot
+    //   C.world_pos = P.world_pos + P.world_rot * (rest_offset + C.local_t)
+    //   rest_offset = C.rest_pos - P.rest_pos  (fixed in bind pose)
     let mut world_pos = vec![Vec3::ZERO; n];
     let mut world_rot = vec![Quat::IDENTITY; n];
 
-    // 按 deform_depth 升序排列，确保父在子之前计算
+    // Sort by deform_depth ascending to guarantee parent-before-child evaluation.
     let mut order: Vec<usize> = (0..n).collect();
     order.sort_by_key(|&i| skel.bones[i].deform_depth);
 
@@ -95,11 +84,11 @@ pub fn skin_update_system(
             }
         }
 
-        // 为了让后续 IK 等能获取更新后的总局部旋转，保存回去
+        // Store the updated local rotation so downstream IK can read it.
         local_r[i] = final_local_r;
 
         if p < 0 || p as usize >= n {
-            // 根骨骼
+            // root bone
             world_pos[i] = bone.rest_position + local_t[i];
             world_rot[i] = final_local_r;
         } else {
@@ -110,16 +99,15 @@ pub fn skin_update_system(
         }
     }
 
-    // ── Step 4：IK — CCD 反向运动学 ─────────────────────────────────────────
-    // CCD（循环坐标下降）每步：
-    //   对链路骨骼 link（从末端往根部）：
-    //     to_end    = normalize(效应骨骼位置 - link位置)
-    //     to_target = normalize(IK目标点    - link位置)
-    //     delta     = from_rotation_arc(to_end, to_target)
-    //     delta     = clamp_rotation(delta, limit_angle)   // 防单步抖动
-    //     link.world_rot = delta × link.world_rot
-    //     若有角度限制：转局部空间→夹紧欧拉角→转回世界空间
-    //     传播：重新计算 link 的所有子孙世界变换
+    // IK: CCD (Cyclic Coordinate Descent) solver.
+    // Each step, for every link bone from end-effector toward root:
+    //   to_end    = normalize(effector_pos - link_pos)
+    //   to_target = normalize(ik_target_pos - link_pos)
+    //   delta     = from_rotation_arc(to_end, to_target)
+    //   delta     = clamp_rotation(delta, limit_angle)   // prevents per-step jitter
+    //   link.world_rot = delta * link.world_rot
+    //   if angle limits: convert to local space → clamp Euler angles → convert back
+    //   propagate: recompute world transforms for all descendants
     for ik in &skel.ik_constraints {
         if ik.ik_bone_idx >= n || ik.target_bone_idx >= n {
             continue;
@@ -145,7 +133,7 @@ pub fn skin_update_system(
                 continue;
             }
         }
-        let target = world_pos[ik.ik_bone_idx]; // IK 目标点（已含 VMD 位移）
+        let target = world_pos[ik.ik_bone_idx]; // IK target (includes VMD displacement)
         for _ in 0..ik.iter_count {
             for link in &ik.links {
                 let li = link.bone_index;
@@ -163,7 +151,7 @@ pub fn skin_update_system(
                 let new_rot = (delta * world_rot[li]).normalize();
 
                 let parent_rot = parent_world_rot(&skel.bones, li, &world_rot);
-                // 角度约束（膝盖只能前弯）
+                // Knee joints are constrained to forward-only bend.
                 let new_rot = if let Some((mn, mx)) = link.angle_limit {
                     let local_rot = (parent_rot.inverse() * new_rot).normalize();
                     let clamped = clamp_euler(local_rot, mn, mx);
@@ -174,7 +162,7 @@ pub fn skin_update_system(
                 world_rot[li] = new_rot;
                 local_r[li] = (parent_rot.inverse() * new_rot).normalize();
 
-                // 传播子孙变换
+                // Propagate rotation change to all descendants.
                 propagate(
                     &skel.bones,
                     li,
@@ -187,9 +175,8 @@ pub fn skin_update_system(
         }
     }
 
-    // ── Step 5：构建蒙皮矩阵 ────────────────────────────────────────────────
-    // M_skin[i] = T(world_pos[i]) × R(world_rot[i]) × T(-rest_pos[i])
-    // 对顶点 v：animated = M_skin × v_rest = R×(v_rest - rest_pos) + world_pos
+    // Build skin matrices: M_skin[i] = T(world_pos[i]) * R(world_rot[i]) * T(-rest_pos[i])
+    // Applied to a vertex v: animated = M_skin * v_rest = R*(v_rest - rest_pos) + world_pos
     let skin_mats: Vec<Mat4> = (0..n)
         .map(|i| {
             Mat4::from_rotation_translation(world_rot[i], world_pos[i])
@@ -197,13 +184,12 @@ pub fn skin_update_system(
         })
         .collect();
 
-    // ── Step 6：CPU 蒙皮（只做一次！） ──────────────────────────────────────
-    // 先把只读的 vertices 长度和引用提前拿出来，再做可变借用（Rust 借用规则）
+    // CPU skin pass — executed once per frame; results are shared across all sub-meshes.
     let vcount_skin = skin.vertices.len();
     let mut new_pos = vec![[0.0f32; 3]; vcount_skin];
     let mut new_nor = vec![[0.0f32; 3]; vcount_skin];
 
-    // 计算 Morph
+    // Apply vertex morphs.
     let mut morphed_positions: Vec<Vec3> = skin.vertices.iter().map(|v| v.rest_position).collect();
     for morph in &skel.morphs {
         if let Some(weight) = pb.clip.sample_morph_at_seconds(&morph.name, t, fps) {
@@ -233,13 +219,13 @@ pub fn skin_update_system(
                 continue;
             }
             let m = skin_mats[bidx];
-            // transform_point3  = 含平移变换（位置用）
-            // transform_vector3 = 不含平移（法线用，只旋转）
+            // transform_point3 includes translation (use for positions)
+            // transform_vector3 excludes translation (use for normals)
             pos += m.transform_point3(morphed_positions[vi]) * bw;
             nor += m.transform_vector3(sv.rest_normal) * bw;
             wsum += bw;
         }
-        // BDEF4 权重总和可能不精确为 1，归一化修正
+        // BDEF4 weights may not sum to exactly 1.0; normalize to correct.
         if wsum > 0.0 && (wsum - 1.0).abs() > 1e-4 {
             pos /= wsum;
             nor /= wsum;
@@ -247,96 +233,74 @@ pub fn skin_update_system(
         new_pos[vi] = pos.to_array();
         new_nor[vi] = nor.normalize_or_zero().to_array();
     }
-    // 将计算结果写回共享 Resource
     skin.skinned_positions = new_pos.clone();
     skin.skinned_normals = new_nor;
-    // ═════════════════════════════════════════════════════════════════════════
-    // 【新增】：将发根或全量软体的最新世界坐标强制同步给物理引擎
-    // ═════════════════════════════════════════════════════════════════════════
-    // ═════════════════════════════════════════════════════════════════════════
-    // 【终极防爆】：每帧全量传入蒙皮目标坐标，实施形状匹配与阻尼
-    // ═════════════════════════════════════════════════════════════════════════
     if let Some(mut hair) = hair_data {
         let is_first = if !hair.is_initialized { 1 } else { 0 };
 
-        // 无论是不是第一帧，我们都把整个软体的“完美动画坐标”传给物理引擎
-        let num_sb_verts = hair.representative_pmx_indices.len();
-        let mut all_positions = Vec::with_capacity(num_sb_verts * 3);
-        let mut all_sb_indices = Vec::with_capacity(num_sb_verts);
+    // Each frame, feed the full set of target skinned positions to the physics engine.
+    let num_sb_verts = hair.representative_pmx_indices.len();
+    let mut all_positions = Vec::with_capacity(num_sb_verts * 3);
+    let mut all_sb_indices = Vec::with_capacity(num_sb_verts);
 
-        for (sb_idx, &pmx_idx) in hair.representative_pmx_indices.iter().enumerate() {
-            let pos = new_pos[pmx_idx];
-            all_positions.push(pos[0]);
-            all_positions.push(pos[1]);
-            all_positions.push(pos[2]);
-            all_sb_indices.push(sb_idx as i32);
-        }
+    for (sb_idx, &pmx_idx) in hair.representative_pmx_indices.iter().enumerate() {
+        let pos = new_pos[pmx_idx];
+        all_positions.push(pos[0]);
+        all_positions.push(pos[1]);
+        all_positions.push(pos[2]);
+        all_sb_indices.push(sb_idx as i32);
+    }
 
-        unsafe {
-            let physics_system =
-                PHYSICS_SYSTEM_PTR.load(std::sync::atomic::Ordering::SeqCst) as *mut c_void;
-            update_soft_body_roots(
-                physics_system,
-                hair.ptr,
-                all_positions.as_ptr(),
-                all_sb_indices.as_ptr(),
-                all_sb_indices.len() as i32,
-                is_first, // 告诉 C++ 这次是要瞬移还是施加牵引力
-                time.delta_secs(),
-                cfg.softbody.position_pull,
-                cfg.softbody.velocity_pull,
-                cfg.softbody.damping,
-                cfg.softbody.max_speed,
-            );
+    unsafe {
+        let physics_system =
+            PHYSICS_SYSTEM_PTR.load(std::sync::atomic::Ordering::SeqCst) as *mut c_void;
+        update_soft_body_roots(
+            physics_system,
+            hair.ptr,
+            all_positions.as_ptr(),
+            all_sb_indices.as_ptr(),
+            all_sb_indices.len() as i32,
+            is_first, // 1 = teleport vertices, 0 = apply pull force
+            time.delta_secs(),
+            cfg.softbody.position_pull,
+            cfg.softbody.velocity_pull,
+            cfg.softbody.damping,
+            cfg.softbody.max_speed,
+        );
 
-            // 推进物理引擎模拟，确保 PBD 约束投影能够修正形状并保持拓扑大小不变
-            step_physics(time.delta_secs().min(0.033));
+        step_physics(time.delta_secs().min(0.033));
 
-            // ═════════════════════════════════════════════════════════════════
-            // 【关键修复】：把物理引擎算好的悬垂坐标读回来，强制覆盖掉生硬的蒙皮！
-            // ═════════════════════════════════════════════════════════════════
-            let mut current_vertices = vec![0.0f32; num_sb_verts * 3];
-            get_soft_body_vertices(
-                physics_system,
-                hair.ptr,
-                current_vertices.as_mut_ptr(),
-                num_sb_verts as i32,
-            );
+        // Read back physics-computed positions and overwrite the skinned result.
+        let mut current_vertices = vec![0.0f32; num_sb_verts * 3];
+        get_soft_body_vertices(
+            physics_system,
+            hair.ptr,
+            current_vertices.as_mut_ptr(),
+            num_sb_verts as i32,
+        );
 
-            for sb_idx in 0..num_sb_verts {
-                let px = current_vertices[sb_idx * 3];
-                let py = current_vertices[sb_idx * 3 + 1];
-                let pz = current_vertices[sb_idx * 3 + 2];
+        for sb_idx in 0..num_sb_verts {
+            let px = current_vertices[sb_idx * 3];
+            let py = current_vertices[sb_idx * 3 + 1];
+            let pz = current_vertices[sb_idx * 3 + 2];
 
-                for &(pmx_idx, offset) in &hair.sb_to_pmx_map[sb_idx] {
-                    if pmx_idx < skin.skinned_positions.len() {
-                        // 强制覆写 PmxSharedSkin 里的坐标，这样下一步 apply_skin_to_meshes 就会渲染物理布料
-                        // 叠加物理软体坐标与顶点相对于物理点的初始偏移，保证内衬等厚度不丢失
-                        skin.skinned_positions[pmx_idx] =
-                            [px + offset.x, py + offset.y, pz + offset.z];
-                    }
+            for &(pmx_idx, offset) in &hair.sb_to_pmx_map[sb_idx] {
+                if pmx_idx < skin.skinned_positions.len() {
+                    // Overwrite skinned position with physics result, adding the
+                    // per-vertex offset to preserve cloth thickness at seams.
+                    skin.skinned_positions[pmx_idx] = [px + offset.x, py + offset.y, pz + offset.z];
                 }
             }
         }
+    }
         hair.is_initialized = true;
     }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// apply_skin_to_meshes — 把共享蒙皮结果写入各子 Mesh Asset
-//
-// 在 skin_update_system 之后运行（.chain() 保证顺序）。
-// 每个 Mesh 从 PmxSharedSkin 中取 [vertex_start, vertex_end) 范围的数据。
-//
-// 由于所有子 Mesh 都使用全部顶点（vertex_start=0, vertex_end=vcount），
-// 此步骤相当于把同一份蒙皮结果写入每个 Mesh——这是必要的，
-// 因为 Bevy 每个 Mesh 实体是独立的 Asset，无法共享同一顶点缓冲区。
-//
-// 性能说明：
-//   蒙皮计算只做一次（skin_update_system，30921次变换）
-//   此处只是内存拷贝（35次 × 30921个顶点的 Vec 复制），
-//   比之前的 35次蒙皮计算（1,082,235次变换）快约 50倍。
-// ═════════════════════════════════════════════════════════════════════════════
+/// Copies the shared skin result into each sub-mesh Asset.
+/// Runs after `skin_update_system` (enforced via `.chain()`).
+/// All sub-meshes share the same vertex range (0..vcount), so this is a
+/// per-mesh memcpy rather than a second skinning pass — roughly 50× faster.
 pub fn apply_skin_to_meshes(
     shared_skin: Option<Res<PmxSharedSkin>>,
     mesh_query: Query<(&SubMeshInfo, &Mesh3d)>,
@@ -347,12 +311,11 @@ pub fn apply_skin_to_meshes(
     };
 
     for (info, mesh3d) in &mesh_query {
-        let Some(mesh) = mesh_assets.get_mut(&mesh3d.0) else {
+        let Some(mut mesh) = mesh_assets.get_mut(&mesh3d.0) else {
             continue;
         };
         let start = info.vertex_start;
         let end = info.vertex_end.min(skin.skinned_positions.len());
-        // 取该子 Mesh 需要的顶点范围切片（目前是全部顶点）
         mesh.insert_attribute(
             Mesh::ATTRIBUTE_POSITION,
             skin.skinned_positions[start..end].to_vec(),
@@ -364,11 +327,7 @@ pub fn apply_skin_to_meshes(
     }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// IK 辅助函数
-// ═════════════════════════════════════════════════════════════════════════════
-
-/// 从 PMX Bone 列表提取所有 IK 约束
+/// Extracts all IK constraints from the PMX bone list.
 pub fn build_ik_constraints(bones: &[Bone]) -> Vec<IkConstraint> {
     let n = bones.len();
     let mut out = Vec::new();
@@ -407,7 +366,7 @@ pub fn build_ik_constraints(bones: &[Bone]) -> Vec<IkConstraint> {
     out
 }
 
-/// IK 修改某骨骼旋转后，向下传播更新所有子孙的世界变换
+/// Propagates a bone rotation change to all descendants.
 fn propagate(
     bones: &[PmxBoneData],
     changed: usize,
@@ -419,7 +378,8 @@ fn propagate(
     let n = bones.len();
     let mut dirty = vec![false; n];
     dirty[changed] = true;
-    // PMX 骨骼通常父索引 < 子索引，顺序遍历即可保证传播正确
+    // PMX bone parent indices are usually less than child indices,
+    // so a forward pass propagates correctly in most cases.
     for i in 0..n {
         let p = bones[i].parent;
         if p < 0 {
@@ -436,7 +396,7 @@ fn propagate(
     }
 }
 
-/// 获取骨骼的父世界旋转（根骨骼返回单位四元数）
+/// Returns the world rotation of the parent bone, or identity for root bones.
 fn parent_world_rot(bones: &[PmxBoneData], idx: usize, world_rot: &[Quat]) -> Quat {
     let p = bones[idx].parent;
     if p < 0 || p as usize >= bones.len() {
@@ -446,7 +406,7 @@ fn parent_world_rot(bones: &[PmxBoneData], idx: usize, world_rot: &[Quat]) -> Qu
     }
 }
 
-/// 限制四元数旋转角不超过 max_angle（弧度），防止 CCD 单步大幅抖动
+/// Clamps a quaternion's rotation angle to `max_angle` radians to prevent large per-step CCD jumps.
 fn clamp_rotation(q: Quat, max_angle: f32) -> Quat {
     let q = if q.w < 0.0 {
         Quat::from_xyzw(-q.x, -q.y, -q.z, -q.w)
@@ -468,7 +428,7 @@ fn clamp_rotation(q: Quat, max_angle: f32) -> Quat {
     .normalize()
 }
 
-/// 将四元数转为欧拉角后夹紧到 [min,max]，再转回四元数（用于关节角度限制）
+/// Clamps a quaternion to [min_ang, max_ang] Euler angles; used for joint angle limits.
 fn clamp_euler(q: Quat, min_ang: Vec3, max_ang: Vec3) -> Quat {
     let e = quat_to_euler_xyz(q);
     euler_xyz_to_quat(Vec3::new(
@@ -478,7 +438,7 @@ fn clamp_euler(q: Quat, min_ang: Vec3, max_ang: Vec3) -> Quat {
     ))
 }
 
-/// 四元数 → XYZ 欧拉角（弧度）
+/// Converts a quaternion to XYZ Euler angles in radians.
 fn quat_to_euler_xyz(q: Quat) -> Vec3 {
     let (x, y, z, w) = (q.x, q.y, q.z, q.w);
     Vec3::new(
@@ -488,7 +448,7 @@ fn quat_to_euler_xyz(q: Quat) -> Vec3 {
     )
 }
 
-/// XYZ 欧拉角 → 四元数
+/// Converts XYZ Euler angles (radians) to a quaternion.
 fn euler_xyz_to_quat(e: Vec3) -> Quat {
     (Quat::from_rotation_z(e.z) * Quat::from_rotation_y(e.y) * Quat::from_rotation_x(e.x))
         .normalize()

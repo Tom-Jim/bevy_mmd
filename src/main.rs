@@ -1,7 +1,3 @@
-// ═════════════════════════════════════════════════════════════════════════════
-// bevy3Danimation — PMX + VMD 实时 CPU 蒙皮动画播放器
-// ═════════════════════════════════════════════════════════════════════════════
-
 use bevy::asset::AssetPlugin;
 use bevy::pbr::MaterialPlugin;
 use bevy::prelude::*;
@@ -25,13 +21,10 @@ use setup::setup;
 fn main() {
     println!("Rust: Starting engine...");
 
-    // 调用 C 接口必须放在 unsafe 块里
     unsafe {
-        // 1. 让 Zig 初始化 Jolt Physics
         let ptr = jolt_init();
         PHYSICS_SYSTEM_PTR.store(ptr as *mut _, std::sync::atomic::Ordering::SeqCst);
 
-        // 2. 测试传参和返回值
         let result = jolt_math_test(10.001, 31.00314);
         println!("Rust: Got math result from Zig/Jolt: {}", result);
     }
@@ -48,8 +41,7 @@ fn main() {
                         title: "bevy3Danimation MMD Player".into(),
                         ..Default::default()
                     }),
-                    // 🚨 核心魔法：禁用引擎自带的“按 X 键强制销毁窗口”行为
-                    // 这样 X 键的控制权就完全交给了我们自定义的 screen_record 模块
+                    // Disabled: window-close control is delegated to screen_record module.
                     //close_when_requested: false,
                     ..Default::default()
                 }),
@@ -58,7 +50,7 @@ fn main() {
         .add_plugins(PanOrbitCameraPlugin)
         //.add_plugins(screen_record::ScreenRecordPlugin)
         .add_systems(Startup, setup)
-        // 两阶段：先计算骨骼+蒙皮，再把结果写入各 Mesh
+        // Two-phase: compute skinning once, then copy results into each Mesh.
         .add_systems(Update, (skin_update_system, apply_skin_to_meshes).chain())
         .add_systems(Update, (draw_debug_bodies, draw_soft_bodies))
         .run();

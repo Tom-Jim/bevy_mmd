@@ -19,94 +19,69 @@ pub struct JoltBody {
     pub _ptr: *mut c_void,
     pub size: Vec3,
 }
-// 重点：手动标记线程安全，因为 Jolt 的 Body 指针在初始化后是线程安全的句柄
+// Jolt Body pointers are safe to share across threads after initialization.
 unsafe impl Send for JoltBody {}
 unsafe impl Sync for JoltBody {}
 
-// 用于保存头发数据的全局资源
+// Global resource holding hair/cloth soft-body state.
 #[derive(Resource)]
 pub struct HairPhysicsData {
     pub ptr: *mut c_void,
     pub root_pmx_indices: Vec<usize>,
     pub root_sb_indices: Vec<i32>,
-    pub representative_pmx_indices: Vec<usize>, // 每个SB顶点对应一个代表性的PMX顶点(传给物理)
-    pub sb_to_pmx_map: Vec<Vec<(usize, bevy::math::Vec3)>>, // 每个SB顶点对应的所有PMX顶点(用于渲染更新)
+    pub representative_pmx_indices: Vec<usize>, // one canonical PMX index per soft-body vertex, drives physics
+    pub sb_to_pmx_map: Vec<Vec<(usize, bevy::math::Vec3)>>, // all PMX indices per soft-body vertex, drives render sync
     pub is_initialized: bool,
 }
 unsafe impl Send for HairPhysicsData {}
 unsafe impl Sync for HairPhysicsData {}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SkinVertex — 单个顶点的绑定姿态数据 + 蒙皮权重
-// ─────────────────────────────────────────────────────────────────────────────
+/// Bind-pose vertex data plus skinning weights.
 #[derive(Clone)]
 pub struct SkinVertex {
-    /// 绑定姿态顶点位置（模型空间，单位 cm）
     pub rest_position: Vec3,
-    /// 绑定姿态顶点法线（用于光照，同样需要骨骼旋转变换）
     pub rest_normal: Vec3,
-    /// 纹理 UV 坐标，不随骨骼变化
     pub uv: [f32; 2],
-    /// 最多 4 个骨骼索引，-1 表示该槽无效
+    /// Up to four bone indices; -1 marks an unused slot.
     pub bone_indices: [i32; 4],
-    /// 对应骨骼权重
     pub bone_weights: [f32; 4],
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PmxSharedSkin — 全局共享蒙皮数据（Resource）
-// ─────────────────────────────────────────────────────────────────────────────
 #[derive(Resource)]
 pub struct PmxSharedSkin {
-    /// 绑定姿态顶点数据（加载后只读）
+    /// Read-only after initial load.
     pub vertices: Vec<SkinVertex>,
-    /// 每帧蒙皮后的顶点位置（由 animate_skinned_meshes 写入）
+    /// Written each frame by `skin_update_system`.
     pub skinned_positions: Vec<[f32; 3]>,
-    /// 每帧蒙皮后的顶点法线（由 animate_skinned_meshes 写入）
     pub skinned_normals: Vec<[f32; 3]>,
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SubMeshInfo — 每个按材质分组的子 Mesh 的描述信息（Component）
-// ─────────────────────────────────────────────────────────────────────────────
+/// Global vertex slice [vertex_start, vertex_end) this sub-mesh reads from `PmxSharedSkin`.
 #[derive(Component)]
 pub struct SubMeshInfo {
-    /// 该子 Mesh 使用的全局顶点范围 [vertex_start, vertex_end)
     pub vertex_start: usize,
     pub vertex_end: usize,
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// IK 相关数据结构
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// IK 链路中单个关节的约束数据
 #[derive(Clone)]
 pub struct IkLinkData {
-    /// 链路骨骼在全局骨骼数组中的索引
     pub bone_index: usize,
-    /// 旋转角度约束 (最小欧拉角, 最大欧拉角)，单位弧度
+    /// Joint angle clamp (min_euler, max_euler) in radians; None if unconstrained.
     pub angle_limit: Option<(Vec3, Vec3)>,
 }
 
-/// 一个完整的 IK 约束定义
 #[derive(Clone)]
 pub struct IkConstraint {
-    /// IK 骨骼索引（其世界位置即 IK 目标点，由 VMD 直接驱动）
+    /// Bone whose world position is the IK target, driven directly by VMD.
     pub ik_bone_idx: usize,
-    /// 效应骨骼（IK 链末端，需要到达 ik_bone 位置）
+    /// End-effector bone that must reach ik_bone_idx.
     pub target_bone_idx: usize,
-    /// CCD 最大迭代次数
     pub iter_count: usize,
-    /// 每步 CCD 最大旋转角（弧度），防止单帧抖动
+    /// Per-step CCD rotation clamp in radians; prevents single-frame jitter.
     pub limit_angle: f32,
-    /// IK 链路骨骼列表（从效应骨骼向上排列）
     pub links: Vec<IkLinkData>,
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PmxBoneData — 骨骼静态数据（绑定姿态，加载后不变）
-// ─────────────────────────────────────────────────────────────────────────────
 #[derive(Clone)]
 pub struct PmxVertexMorph {
     pub index: usize,
@@ -119,54 +94,40 @@ pub struct PmxMorphData {
     pub offsets: Vec<PmxVertexMorph>,
 }
 
+/// Immutable bone data loaded from the PMX bind pose.
 pub struct PmxBoneData {
-    /// 日文名称（VMD 用骨骼名匹配关键帧）
+    /// Japanese name used to match VMD keyframes.
     pub name: String,
-    /// 绑定姿态下骨骼头部的世界位置（单位 cm）
     pub rest_position: Vec3,
-    /// 父骨骼索引，-1 = 根骨骼
+    /// -1 for root bones.
     pub parent: i32,
-    /// 变形优先级，越小越先计算（保证父→子顺序）
+    /// Lower values are evaluated first, ensuring parent-before-child ordering.
     pub deform_depth: i32,
-    /// 赋予旋转 (目标骨骼索引, 权重)
+    /// Appended rotation: (source_bone_index, blend_weight).
     pub append_rotation: Option<(usize, f32)>,
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PmxSkeleton — 全局骨架 Resource
-// ─────────────────────────────────────────────────────────────────────────────
 #[derive(Resource)]
 pub struct PmxSkeleton {
-    /// 骨骼静态数据数组（索引与 PMX 文件一致）
     pub bones: Vec<PmxBoneData>,
-    /// 所有 IK 约束列表（含腿部 IK、脚尖 IK 等）
     pub ik_constraints: Vec<IkConstraint>,
-    /// 面部表情等顶点 Morph
     pub morphs: Vec<PmxMorphData>,
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// VmdPlayback — VMD 播放状态 Resource
-// ─────────────────────────────────────────────────────────────────────────────
 #[derive(Resource)]
 pub struct VmdPlayback {
-    /// 解析后的 VMD 动作数据
     pub clip: VmdMotionClip,
-    /// 播放帧率（VMD 标准 30fps）
+    /// VMD standard frame rate (30 fps).
     pub fps: f32,
-    /// 当前播放时间（秒）
     pub time_sec: f32,
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PmxUniform / PmxMaterial — GPU 材质数据
-// ─────────────────────────────────────────────────────────────────────────────
 #[derive(Clone, Debug, ShaderType)]
 pub struct PmxUniform {
     pub diffuse: Vec4,
     pub ambient: Vec4,
     pub edge_color: Vec4,
-    /// x=球面模式(0/1/2), y=预留, z=描边, w=卡通贴图
+    /// x=sphere_mode(0/1/2), y=reserved, z=edge_enabled, w=toon_enabled
     pub flags: UVec4,
     pub emissive_strength: f32,
     pub _pad0: Vec3,

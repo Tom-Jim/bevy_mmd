@@ -6,19 +6,18 @@ use PMXUtil::types::{Bone, Face, Material, Vertex};
 use crate::components::{HairPhysicsData, JoltSoftBody};
 use crate::physics::{create_soft_body_from_mesh, PHYSICS_SYSTEM_PTR};
 
-/// 在场景中生成一个简单的悬挂旗帜软体（示例）
+/// Spawns a simple hanging flag soft-body for demonstration purposes.
 pub fn spawn_flag_softbody(commands: &mut Commands) {
-    // === 生成一个悬挂的旗帜软体 ===
-    let grid_size = 15; // 15x15 的网格
+    let grid_size = 15;
     let width = 10.0;
     let height = 10.0;
-    let offset = Vec3::new(10.0, 15.0, 0.0); // 放在角色旁边的高处
+    let offset = Vec3::new(10.0, 15.0, 0.0);
 
     let mut flag_vertices = Vec::with_capacity(grid_size * grid_size * 3);
     let mut flag_inv_masses = Vec::with_capacity(grid_size * grid_size);
     let mut flag_indices = Vec::new();
 
-    // 1. 生成顶点和质量逆
+    // Build vertex grid and inverse masses.
     for y in 0..grid_size {
         for x in 0..grid_size {
             let px = (x as f32 / (grid_size - 1) as f32) * width;
@@ -37,7 +36,7 @@ pub fn spawn_flag_softbody(commands: &mut Commands) {
         }
     }
 
-    // 2. 生成三角面索引 (构建网格)
+    // Build triangle index buffer.
     for y in 0..(grid_size - 1) {
         for x in 0..(grid_size - 1) {
             let top_left = (y * grid_size + x) as u32;
@@ -78,8 +77,8 @@ pub fn spawn_flag_softbody(commands: &mut Commands) {
     }
 }
 
-/// 根据 PMX 顶点/面/材质信息构建用于 Jolt 的轻量级软体网格并创建软体
-/// 注：函数会在成功时向 ECS 插入 `HairPhysicsData` 资源并产生一个 `JoltSoftBody` 实体。
+/// Builds a physics soft-body mesh from PMX hair/cloth materials and registers it in the ECS.
+/// On success, inserts `HairPhysicsData` resource and spawns a `JoltSoftBody` entity.
 pub fn spawn_hair_from_pmx(
     commands: &mut Commands,
     vertices: &Vec<Vertex>,
@@ -88,8 +87,7 @@ pub fn spawn_hair_from_pmx(
     face_groups: &Vec<(usize, Vec<u32>)>,
     bones: &Vec<Bone>,
 ) {
-    // 包含所有的软体关键字，包括内衬和工牌
-    // 主软体关键字（构成物理网格）
+    // All soft-body and accessory keywords, including lining and name-tag meshes.
     let soft_keywords = [
         "发",
         "髪",
@@ -128,11 +126,13 @@ pub fn spawn_hair_from_pmx(
         "ケープ",
     ];
 
-    // 这些材质即使包含了 soft_keywords，也不应该作为主软体（它们要么是硬的，要么是独立的）
+    // Materials that match soft_keywords but must NOT form a physics mesh
+    // (rigid accessories, shoes, gloves, ear parts, butterflies).
     let exclude_keywords = ["衣饰", "衣飾", "鞋", "手套", "耳", "蝶"];
 
-    // 这些是附属品（Accessories），它们不会自己生成物理网格，而是通过找最近距离的顶点“寄生”到主软体上。
-    // 比如：挂在裙子上的工牌/标牌，内衬，或者绑在头发上但跟随头发运动的发饰。
+    // Accessories are attached to the nearest main soft-body particle rather
+    // than forming their own physics mesh (e.g., name tags, lining panels,
+    // hair accessories that follow hair motion).
     let accessory_keywords = [
         "biaoq",
         "内著",
@@ -149,11 +149,9 @@ pub fn spawn_hair_from_pmx(
     let mut acc_mat_indices = Vec::new();
 
     for (i, mat) in materials_pmx.iter().enumerate() {
-        // 判断是否是附属品
         if accessory_keywords.iter().any(|&k| mat.name.contains(k)) {
             acc_mat_indices.push(i);
         } else if soft_keywords.iter().any(|&k| mat.name.contains(k)) {
-            // 如果是主软体，但不能在排除名单里
             if !exclude_keywords.iter().any(|&k| mat.name.contains(k)) {
                 main_mat_indices.push(i);
             }
@@ -164,7 +162,7 @@ pub fn spawn_hair_from_pmx(
         return;
     }
 
-    // 定义核心承重骨骼关键字
+    // Core load-bearing bone keywords — vertices anchored to these are pinned.
     let core_keywords = [
         "上半身",
         "下半身",
@@ -232,7 +230,7 @@ pub fn spawn_hair_from_pmx(
         }
     }
 
-    // 1. 先只处理 MAIN (主软体)，生成物理粒子
+    // Build main soft-body physics particles.
     let mut sb_vertices: Vec<f32> = Vec::new();
     let mut sb_inv_masses: Vec<f32> = Vec::new();
     let mut sb_indices: Vec<u32> = Vec::new();
@@ -266,11 +264,12 @@ pub fn spawn_hair_from_pmx(
         let qy = (v.position[1] * 100000.0).round() as i32;
         let qz = ((-v.position[2]) * 100000.0).round() as i32;
 
+        // Hair materials must be segregated by material index so front and back
+        // strands are not welded together — cross-welding causes violent jitter.
         let q_pos = if is_hair {
-            // 头发必须区分材质，否则前发后发会粘连成一团导致抽搐和往下掉
             (qx, qy, qz, mat_idx as i32)
         } else {
-            // 衣服内部不区分材质，让共享顶点的裙摆能缝合
+            // Cloth shares a single key so overlapping seam vertices are welded.
             (qx, qy, qz, -1)
         };
 
@@ -337,7 +336,7 @@ pub fn spawn_hair_from_pmx(
         }
     }
 
-    // 2. 将 ACC (附属品) 挂载到 MAIN (主软体) 的粒子上！
+    // Attach accessories to the nearest main soft-body particle.
     let mut acc_pmx_indices = std::collections::BTreeSet::new();
     for &mat_idx in &acc_mat_indices {
         for &idx in &face_groups[mat_idx].1 {
@@ -345,7 +344,6 @@ pub fn spawn_hair_from_pmx(
         }
     }
 
-    // 如果没有生成任何主软体粒子，但是有附属品，说明有问题，直接返回
     if sb_vertices.is_empty() {
         return;
     }
@@ -360,19 +358,20 @@ pub fn spawn_hair_from_pmx(
         let mat_name = &materials_pmx[mat_idx].name;
         let is_acc_hair = acc_hair_keywords.iter().any(|&k| mat_name.contains(k));
 
-        // 寻找距离最近的主软体粒子
-        let mut min_dist_sq = f32::MAX;
+    // Find the nearest main soft-body particle.
+    let mut min_dist_sq = f32::MAX;
         let mut nearest_sb_idx = 0;
 
-        // 由于这只是在初始化时运行一次，暴力寻找是可以接受的
+        // Linear search is acceptable here — this runs only once at startup.
         for i in 0..(sb_vertices.len() / 3) {
-            // 确保头发饰品挂在头发上，衣服饰品挂在衣服上
+            // Match hair accessories to hair particles and cloth accessories to cloth particles;
+            // cross-type attachment would cause cloth to pull hair or decorations to teleport.
             let sb_pmx = sb_to_pmx_map[i][0].0;
             let sb_mat_idx = vertex_to_mat.get(&(sb_pmx as u32)).copied().unwrap_or(0);
             let sb_is_hair = is_hair_mat.get(&sb_mat_idx).copied().unwrap_or(false);
 
             if is_acc_hair != sb_is_hair {
-                continue; // 跨界挂载会导致衣服拉扯头发，或者胸花飞到头发上
+                continue; // cross-type attachment causes cloth to pull hair or decorations to teleport
             }
 
             let sx = sb_vertices[i * 3];
@@ -386,7 +385,7 @@ pub fn spawn_hair_from_pmx(
         }
 
         if min_dist_sq == f32::MAX {
-            // 回退到全局搜索（如果在所属分类找不到最近点）
+            // Fallback: global search when no same-type particle exists nearby.
             for i in 0..(sb_vertices.len() / 3) {
                 let sx = sb_vertices[i * 3];
                 let sy = sb_vertices[i * 3 + 1];
@@ -409,9 +408,7 @@ pub fn spawn_hair_from_pmx(
         sb_to_pmx_map[nearest_sb_idx as usize].push((pmx_idx as usize, offset));
     }
 
-    // ═════════════════════════════════════════════════════════════════════════
-    // 【终极修复】：处理没有挂载点的孤立主软体网格（如断裂的头发末端碎片）
-    // ═════════════════════════════════════════════════════════════════════════
+    // Fix isolated components that lack any anchor vertex.
     let num_sb_verts = sb_vertices.len() / 3;
     let mut adj = vec![Vec::new(); num_sb_verts];
     for chunk in sb_indices.chunks_exact(3) {
@@ -443,9 +440,10 @@ pub fn spawn_hair_from_pmx(
                     }
                 }
             }
-            if !has_anchor && comp.len() < 300 {
-                // 仅当孤立碎片比较小时（例如独立的装饰品碎片），才将其设为锚点。
-                // 如果整个衣服/头发（几千个顶点）都碰巧没有锚点，绝对不能将其全体焊死，否则会导致整个软体变成刚硬的木板。
+    // Fix isolated connected components that have no anchor: pin small fragments
+    // only (< 300 verts). Pinning a large mesh (thousands of verts) would freeze
+    // the entire cloth into a rigid board, which is wrong.
+    if !has_anchor && comp.len() < 300 {
                 for &curr in &comp {
                     sb_inv_masses[curr] = 0.0;
                     root_sb_indices.push(curr as i32);

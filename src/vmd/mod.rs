@@ -10,7 +10,7 @@ use std::path::Path;
 const VMD_LOG_PATH: &str = "src/vmd/vmd_info.txt";
 
 // ─────────────────────────────────────────────
-// 错误类型
+// Error types for VMD parsing.
 // ─────────────────────────────────────────────
 #[derive(Debug)]
 pub enum VmdMotionError {
@@ -31,15 +31,11 @@ impl From<vmd_parser::VmdError> for VmdMotionError {
     }
 }
 
-// ─────────────────────────────────────────────
-// 插值曲线 (Bezier 控制点)
-// ─────────────────────────────────────────────
-/// VMD 使用三次贝塞尔曲线对每个轴的插值进行精确控制。
-/// 每条曲线由 16 个字节存储，有效控制点为 4 个 u8：
-///   x1, y1, x2, y2  (各取 bytes[0], bytes[4], bytes[8], bytes[12])
-/// 归一化到 [0,1] 后，P0=(0,0)  P1=(x1/127, y1/127)
-///                    P2=(x2/127, y2/127)  P3=(1,1)
-/// 当 x1==y1==20 && x2==y2==107 时为线性插值。
+/// Per-axis cubic Bezier interpolation curve stored in VMD keyframes.
+/// Each curve occupies 16 bytes; the four effective control points are:
+///   x1=bytes[0], y1=bytes[4], x2=bytes[8], y2=bytes[12]
+/// Normalised to [0,1]: P0=(0,0), P1=(x1/127, y1/127), P2=(x2/127, y2/127), P3=(1,1).
+/// x1==y1==20 and x2==y2==107 indicates a linear curve.
 #[derive(Debug, Clone, Copy)]
 pub struct BezierCurve {
     pub x1: u8, // P1.x * 127
@@ -63,111 +59,70 @@ impl BezierCurve {
     }
 }
 
-// ─────────────────────────────────────────────
-// 骨骼关键帧
-// ─────────────────────────────────────────────
-/// 骨骼关键帧：记录某根骨骼在某帧的位姿，以及四轴插值曲线。
+/// Bone keyframe: local transform of a bone at a specific frame, plus per-axis Bezier curves.
 #[derive(Debug, Clone, Copy)]
 pub struct VmdBoneKeyframe {
-    /// 骨骼所属帧号（30 fps 为单位）
     pub frame: u32,
-    /// 骨骼的位移（局部坐标，单位 cm，右手系 X-right Y-up Z-back）
+    /// Local translation delta (cm, right-hand Z-back coordinate system).
     pub translation: Vec3,
-    /// 骨骼的旋转四元数（xyzw，需 normalize 后使用）
     pub rotation: Quat,
-    /// X 轴平移插值曲线
     pub x_curve: BezierCurve,
-    /// Y 轴平移插值曲线
     pub y_curve: BezierCurve,
-    /// Z 轴平移插值曲线
     pub z_curve: BezierCurve,
-    /// 旋转插值曲线
     pub r_curve: BezierCurve,
 }
 
-// ─────────────────────────────────────────────
-// 表情关键帧
-// ─────────────────────────────────────────────
-/// Morph（表情/形态键）关键帧：控制面部变形权重。
-/// weight 范围 [0.0, 1.0]，0 = 原始形状，1 = 完全变形。
+/// Morph (blend-shape) keyframe. Weight is in [0.0, 1.0].
 #[derive(Debug, Clone)]
 pub struct VmdMorphKeyframe {
-    /// 表情名称（Shift-JIS，最多 15 字节）
     pub name: String,
-    /// 帧号
     pub frame: u32,
-    /// 变形权重 [0.0, 1.0]
     pub weight: f32,
 }
 
-// ─────────────────────────────────────────────
-// 摄像机关键帧
-// ─────────────────────────────────────────────
-/// 摄像机关键帧：定义 MMD 摄像机在某帧的状态。
+/// Camera keyframe: defines MMD camera state at a given frame.
 #[derive(Debug, Clone)]
 pub struct VmdCameraKeyframe {
-    /// 帧号
     pub frame: u32,
-    /// 摄像机到目标点的距离（负值表示从前方看）
+    /// Distance from camera to target (negative = looking from front).
     pub distance: f32,
-    /// 摄像机目标点的世界位置 [x, y, z]
     pub position: [f32; 3],
-    /// 摄像机欧拉角旋转 [rx, ry, rz]（弧度）
-    /// rx: 俯仰(pitch)，ry: 偏航(yaw)，rz: 翻滚(roll)
+    /// Euler angles [pitch, yaw, roll] in radians.
     pub rotation: [f32; 3],
-    /// 24 字节插值曲线（6 轴：x/y/z/rot/dist/fov，各 4 字节）
+    /// 24-byte interpolation curves (6 axes × 4 bytes each: x/y/z/rot/dist/fov).
     pub curve: [u8; 24],
-    /// 视角（Field of View），单位：度
+    /// Field of view in degrees.
     pub view_angle: f32,
-    /// 是否正交投影：0 = 透视，1 = 正交
+    /// 0 = perspective, 1 = orthographic.
     pub orthographic: u8,
 }
 
-// ─────────────────────────────────────────────
-// 灯光关键帧
-// ─────────────────────────────────────────────
-/// 灯光关键帧：定义平行光的颜色与方向。
+/// Light keyframe: directional light color and direction.
 #[derive(Debug, Clone)]
 pub struct VmdLightKeyframe {
-    /// 帧号
     pub frame: u32,
-    /// RGB 颜色 [r, g, b]，范围 [0.0, 1.0]
     pub color: [f32; 3],
-    /// 光线方向向量 [x, y, z]（归一化）
     pub direction: [f32; 3],
 }
 
-// ─────────────────────────────────────────────
-// 运动时采样用的骨骼姿态
-// ─────────────────────────────────────────────
 #[derive(Debug, Clone, Copy)]
 pub struct BonePose {
     pub translation: Vec3,
     pub rotation: Quat,
 }
 
-// ─────────────────────────────────────────────
-// 完整 VMD 动作片段
-// ─────────────────────────────────────────────
+/// Full parsed VMD animation clip.
 #[derive(Debug, Default)]
 pub struct VmdMotionClip {
-    /// VMD 文件中记录的模型名称
     pub model_name: String,
-    /// 动画总帧数（= 所有骨骼关键帧中最大帧号）
+    /// Highest frame number across all bone keyframes.
     pub duration_frames: u32,
-    /// 骨骼名称 → 按帧号升序排列的关键帧列表
     pub bones: HashMap<String, Vec<VmdBoneKeyframe>>,
-    /// 所有表情关键帧（按名称分组）
     pub morphs: HashMap<String, Vec<VmdMorphKeyframe>>,
-    /// 摄像机关键帧（按帧号升序）
     pub cameras: Vec<VmdCameraKeyframe>,
-    /// 灯光关键帧（按帧号升序）
     pub lights: Vec<VmdLightKeyframe>,
 }
 pub fn init_vmd(commands: &mut Commands, cfg: &Config) {
-    // ═════════════════════════════════════════════════════════════════════════
-    // 加载 VMD（放在 PMX 模块里以便写入同一目录的日志）
-    // ═════════════════════════════════════════════════════════════════════════
     let vmd_file = &cfg.paths.vmd;
     let vmd_path = if Path::new(vmd_file).is_absolute() {
         vmd_file.to_string()
@@ -177,28 +132,22 @@ pub fn init_vmd(commands: &mut Commands, cfg: &Config) {
     match VmdMotionClip::from_file(&vmd_path) {
         Ok(clip) => {
             let mut needs_write = true;
-            // 尝试同时获取 VMD源文件 和 TXT日志文件 的元数据
+            // Skip rewriting the log if the VMD file is older than the existing log.
             if let (Ok(vmd_meta), Ok(log_meta)) =
                 (fs::metadata(&vmd_path), fs::metadata(VMD_LOG_PATH))
             {
-                // 尝试提取它们的最后修改时间
                 if let (Ok(vmd_time), Ok(log_time)) = (vmd_meta.modified(), log_meta.modified()) {
-                    // 如果 VMD 文件的修改时间 早于或等于 日志文件，说明没改过，不用重写
                     if vmd_time <= log_time {
                         needs_write = false;
                     }
                 }
             }
 
-            // 根据判断结果决定是否调用写入函数
             if needs_write {
-                clip.write_info_to_file(VMD_LOG_PATH); // 这里依然保留你之前加了 BufWriter 的版本
-                println!(
-                    "[INFO] VMD 文件有更新或日志不存在，已重新写入 {}",
-                    VMD_LOG_PATH
-                );
+                clip.write_info_to_file(VMD_LOG_PATH);
+                println!("[INFO] VMD updated or log missing — rewrote {}", VMD_LOG_PATH);
             } else {
-                println!("[INFO] VMD 文件未改变，跳过日志写入。");
+                println!("[INFO] VMD unchanged, skipping log write.");
             }
             commands.insert_resource(VmdPlayback {
                 clip,
@@ -206,7 +155,7 @@ pub fn init_vmd(commands: &mut Commands, cfg: &Config) {
                 time_sec: 0.0,
             });
         }
-        Err(e) => eprintln!("[ERROR] VMD 加载失败: {:?}", e),
+        Err(e) => eprintln!("[ERROR] VMD load failed: {:?}", e),
     }
 }
 impl VmdMotionClip {
@@ -220,7 +169,6 @@ impl VmdMotionClip {
             ..Default::default()
         };
 
-        // ── 骨骼关键帧 ──────────────────────────────
         for record in &vmd.bone {
             let dbg = format!("{:?}", record);
             let (bone_name, kf) = parse_bone_record_debug(&dbg).ok_or_else(|| {
@@ -233,7 +181,6 @@ impl VmdMotionClip {
             keyframes.sort_by_key(|k| k.frame);
         }
 
-        // ── 表情关键帧 ──────────────────────────────
         for record in &vmd.morph {
             let dbg = format!("{:?}", record);
             if let Some(m) = parse_morph_record_debug(&dbg) {
@@ -244,7 +191,6 @@ impl VmdMotionClip {
             keyframes.sort_by_key(|k| k.frame);
         }
 
-        // ── 摄像机关键帧 ────────────────────────────
         for record in &vmd.camera {
             let dbg = format!("{:?}", record);
             if let Some(c) = parse_camera_record_debug(&dbg) {
@@ -253,7 +199,6 @@ impl VmdMotionClip {
         }
         clip.cameras.sort_by_key(|c| c.frame);
 
-        // ── 灯光关键帧 ──────────────────────────────
         for record in &vmd.light {
             let dbg = format!("{:?}", record);
             if let Some(l) = parse_light_record_debug(&dbg) {
@@ -265,19 +210,18 @@ impl VmdMotionClip {
         Ok(clip)
     }
 
-    // ── 打印全部解析信息 ────────────────────────────────
     pub fn write_info_to_file(&self, path: impl AsRef<std::path::Path>) {
         let raw_file = match File::create(path) {
             Ok(f) => f,
             Err(e) => {
-                eprintln!("[write_info_to_file] 无法创建文件: {}", e);
+                eprintln!("[write_info_to_file] cannot create file: {}", e);
                 return;
             }
         };
         let mut file = BufWriter::new(raw_file);
         macro_rules! wln {
-            () => { if let Err(e) = writeln!(file) { eprintln!("[write_info_to_file] 写入失败: {}", e); return; } };
-            ($($arg:tt)*) => { if let Err(e) = writeln!(file, $($arg)*) { eprintln!("[write_info_to_file] 写入失败: {}", e); return; } };
+            () => { if let Err(e) = writeln!(file) { eprintln!("[write_info_to_file] write failed: {}", e); return; } };
+            ($($arg:tt)*) => { if let Err(e) = writeln!(file, $($arg)*) { eprintln!("[write_info_to_file] write failed: {}", e); return; } };
         }
 
         wln!();
@@ -285,7 +229,7 @@ impl VmdMotionClip {
         wln!("║              VMD 文件完整解析信息                        ║");
         wln!("╚══════════════════════════════════════════════════════════╝");
 
-        // ── 文件头 ──
+    // — File header —
         wln!();
         wln!("━━━ [文件头] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         wln!("  model_name      : {}", self.model_name);
@@ -299,7 +243,7 @@ impl VmdMotionClip {
         wln!("  摄像机关键帧数  : {}", self.cameras.len());
         wln!("  灯光关键帧数    : {}", self.lights.len());
 
-        // ── 骨骼关键帧 ──
+        // — Bone keyframes —
         wln!();
         wln!("━━━ [骨骼关键帧 Bone Keyframes] ━━━━━━━━━━━━━━━━━━━━━━━━━");
         wln!("  字段说明:");
@@ -383,7 +327,7 @@ impl VmdMotionClip {
             wln!("  └──────────────────────────────────────────────────────");
         }
 
-        // ── 表情关键帧 ──
+        // — Morph keyframes —
         wln!();
         wln!("━━━ [表情关键帧 Morph Keyframes] ━━━━━━━━━━━━━━━━━━━━━━━━");
         wln!("  字段说明:");
@@ -407,7 +351,7 @@ impl VmdMotionClip {
             wln!("  └──────────────────────────────────────────────────────");
         }
 
-        // ── 摄像机关键帧 ──
+        // — Camera keyframes —
         wln!();
         wln!("━━━ [摄像机关键帧 Camera Keyframes] ━━━━━━━━━━━━━━━━━━━━━");
         wln!("  字段说明:");
@@ -439,7 +383,7 @@ impl VmdMotionClip {
                     "正交"
                 }
             );
-            // 写入插值曲线原始字节
+            // write raw interpolation curve bytes
             let c = &cam.curve;
             wln!(
                 "         curve=[{:3},{:3},{:3},{:3} | {:3},{:3},{:3},{:3} | {:3},{:3},{:3},{:3} | {:3},{:3},{:3},{:3} | {:3},{:3},{:3},{:3} | {:3},{:3},{:3},{:3}]",
@@ -470,7 +414,7 @@ impl VmdMotionClip {
             );
         }
 
-        // ── 灯光关键帧 ──
+        // — Light keyframes —
         wln!();
         wln!("━━━ [灯光关键帧 Light Keyframes] ━━━━━━━━━━━━━━━━━━━━━━━━");
         wln!("  字段说明:");
@@ -501,7 +445,7 @@ impl VmdMotionClip {
     }
 
     // ─────────────────────────────────────────
-    // 采样接口
+    // — Sampling interface —
     // ─────────────────────────────────────────
 
     pub fn sample_morph_at_frame(&self, morph_name: &str, frame: f32) -> Option<f32> {
@@ -590,11 +534,9 @@ impl VmdMotionClip {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Debug 字符串解析辅助
-// （vmd_parser 0.1.0 的所有关键帧字段均为私有，通过 {:?} 文本解析）
-// ─────────────────────────────────────────────────────────────────────────────
-
+// Debug-string parsing helpers.
+// vmd_parser 0.1.0 keeps all keyframe fields private;
+// we extract values by formatting records with {:?} and parsing the output.
 fn extract_between<'a>(s: &'a str, start: &str, end: &str) -> Option<&'a str> {
     let a = s.find(start)? + start.len();
     let b = s[a..].find(end)? + a;
@@ -622,8 +564,8 @@ fn parse_f32_4(src: &str) -> Option<[f32; 4]> {
     Some([vals.next()??, vals.next()??, vals.next()??, vals.next()??])
 }
 
-// ── 骨骼记录解析 ────────────────────────────────────────────────────────────
-// Debug 格式示例：
+// Bone record parser.
+// Debug format example:
 // BoneKeyFrameRecord { bone_name: "センター", frame_time: 0,
 //   translation: [0.0, 0.0, 0.0], rotation: [0.0, 0.0, 0.0, 1.0],
 //   x_curve: [20, ...16 bytes...], y_curve: [...], z_curve: [...], r_curve: [...] }
@@ -638,7 +580,7 @@ fn parse_bone_record_debug(input: &str) -> Option<(String, VmdBoneKeyframe)> {
     let t = parse_f32_3(translation_src)?;
     let r = parse_f32_4(rotation_src)?;
 
-    // 解析四条插岝曲线（各 16 字节）
+    // Parse the four per-axis interpolation curves (16 bytes each).
     let x_curve = parse_curve_field(input, "x_curve: ")?;
     let y_curve = parse_curve_field(input, "y_curve: ")?;
     let z_curve = parse_curve_field(input, "z_curve: ")?;
@@ -658,11 +600,11 @@ fn parse_bone_record_debug(input: &str) -> Option<(String, VmdBoneKeyframe)> {
     ))
 }
 
-/// 从 Debug 字符串中定位 `key: [...]` 并提取 16 字节数组
+/// Locates `key: [...]` in a Debug string and extracts a 16-byte array.
 fn parse_curve_field(input: &str, key: &str) -> Option<[u8; 16]> {
     let start_pos = input.find(key)? + key.len();
     let sub = &input[start_pos..];
-    // sub 现在以 '[' 开头
+    // sub starts at '['
     let inner_start = sub.find('[')? + 1;
     let inner_end = sub.find(']')?;
     let inner = &sub[inner_start..inner_end];
@@ -674,8 +616,8 @@ fn parse_curve_field(input: &str, key: &str) -> Option<[u8; 16]> {
     Some(arr)
 }
 
-// ── 表情记录解析 ─────────────────────────────────────────────────────────────
-// Debug 格式示例：
+// Morph record parser.
+// Debug format example:
 // MorphKeyFrameRecord { morph_name: "まばたき", frame_time: 0, weight: 0.0 }
 fn parse_morph_record_debug(input: &str) -> Option<VmdMorphKeyframe> {
     let name = extract_between(input, "morph_name: \"", "\"")?;
@@ -691,8 +633,8 @@ fn parse_morph_record_debug(input: &str) -> Option<VmdMorphKeyframe> {
     })
 }
 
-// ── 摄像机记录解析 ───────────────────────────────────────────────────────────
-// Debug 格式示例：
+// Camera record parser.
+// Debug format example:
 // CameraKeyFrameRecord { frame_time: 0, distance: -45.0,
 //   position: [0.0, 10.0, 0.0], rotation: [0.0, 0.0, 0.0],
 //   curve: [20, ...24 bytes...], view_angle: 30.0, orthographic: 0 }
@@ -742,8 +684,8 @@ fn parse_camera_curve_field(input: &str) -> Option<[u8; 24]> {
     Some(arr)
 }
 
-// ── 灯光记录解析 ─────────────────────────────────────────────────────────────
-// Debug 格式示例：
+// Light record parser.
+// Debug format example:
 // LightKeyFrameRecord { frame_time: 0, color: [0.6, 0.6, 0.6],
 //   direction: [0.5, 1.0, -0.5] }
 fn parse_light_record_debug(input: &str) -> Option<VmdLightKeyframe> {

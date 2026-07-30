@@ -42,12 +42,10 @@ impl Config {
     pub fn load_from_assets() -> Self {
         let path = "src/config.toml";
         
-        // 读取文件，读不到直接报错退出
         let s = fs::read_to_string(path)
-            .expect(&format!("[config] 致命错误: 无法读取配置文件 {}。请检查文件是否存在或权限是否正确！", path));
-            
-        // 解析 TOML，格式不对直接报错退出
+            .expect(&format!("[config] fatal: cannot read config file {}", path));
+
         toml::from_str::<Config>(&s)
-            .expect("[config] 致命错误: TOML 解析失败！请检查文件里的字段名和数据类型是否匹配！")
+            .expect("[config] fatal: TOML parse failed — verify field names and types")
     }
 }

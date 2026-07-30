@@ -15,11 +15,9 @@ use crate::components::*;
 use crate::config::Config;
 use crate::softbody;
 
-// PMX 日志路径（写入到 src/pmx/pmx_info.txt）
 const PMX_LOG_PATH: &str = "src/pmx/pmx_info.txt";
 
-/// 加载 PMX 文件并在 ECS 中构建材质/网格/蒙皮/骨架等资源。
-/// 这个函数将 PMX 特有的职责封装在 `pmx` 模块中，并在需要时委托软体创建给 `softbody` 模块。
+/// Loads a PMX file and builds all ECS resources: materials, meshes, skeleton, skinning data, and soft bodies.
 pub fn init_pmx(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
@@ -27,7 +25,6 @@ pub fn init_pmx(
     materials: &mut ResMut<Assets<PmxMaterial>>,
     cfg: &Config,
 ) {
-    // ── 打开 PMX 文件 ─────────────────────────────────────────────────────────
     let pmx_file = &cfg.paths.pmx;
     let pmx_path = if Path::new(pmx_file).is_absolute() {
         pmx_file.to_string()
@@ -35,17 +32,14 @@ pub fn init_pmx(
         format!("assets/{}", pmx_file)
     };
     let loader = ModelInfoStage::open(pmx_path.clone())
-        .unwrap_or_else(|| panic!("无法加载 PMX：{}", pmx_path));
-    // ── PMX 信息写入文件（写入到 src/pmx/pmx_info.txt） ─────────────────────────
-    // ── 使用 BufWriter 加速写入 ──────────────────────────────────────────
+        .unwrap_or_else(|| panic!("Failed to load PMX: {}", pmx_path));
     let raw_file = std::fs::File::create(PMX_LOG_PATH)
-        .unwrap_or_else(|e| panic!("无法创建 {}: {}", PMX_LOG_PATH, e));
+        .unwrap_or_else(|e| panic!("Cannot create {}: {}", PMX_LOG_PATH, e));
     let mut pmx_log = std::io::BufWriter::new(raw_file);
 
-    // 为了方便，定义一个宏来处理 writeln 错误
     macro_rules! wln {
-        () => { if let Err(e) = writeln!(pmx_log) { eprintln!("[write_pmx_info] 写入失败: {}", e); } };
-        ($($arg:tt)*) => { if let Err(e) = writeln!(pmx_log, $($arg)*) { eprintln!("[write_pmx_info] 写入失败: {}", e); } };
+        () => { if let Err(e) = writeln!(pmx_log) { eprintln!("[write_pmx_info] write failed: {}", e); } };
+        ($($arg:tt)*) => { if let Err(e) = writeln!(pmx_log, $($arg)*) { eprintln!("[write_pmx_info] write failed: {}", e); } };
     }
 
     // [1] Header
@@ -171,14 +165,13 @@ pub fn init_pmx(
     }
     wln!("\n═══ PMX 写入完毕 ═══");
     pmx_log.flush().ok();
-    println!("[INFO] PMX 信息已写入 {}", PMX_LOG_PATH);
+    println!("[INFO] PMX info written to {}", PMX_LOG_PATH);
 
     // ═════════════════════════════════════════════════════════════════════════
-    // 构建全局蒙皮数据 PmxSharedSkin
-    // ═════════════════════════════════════════════════════════════════════════
+    // Build global skinning data (PmxSharedSkin).
     let vcount = vertices.len();
 
-    // 将 PMX VertexWeight 枚举统一为 (bone_indices[4], bone_weights[4])
+    // Convert PMX VertexWeight variants to uniform (bone_indices[4], bone_weights[4]) representation.
     let skin_vertices: Vec<SkinVertex> = vertices
         .iter()
         .map(|v| {
@@ -193,7 +186,7 @@ pub fn init_pmx(
         })
         .collect();
 
-    // 初始蒙皮结果 = 绑定姿态（第0帧之前先显示正确的 T-pose）
+    // Initialize skinned positions and normals to the bind pose.
     let init_positions: Vec<[f32; 3]> = skin_vertices
         .iter()
         .map(|sv| sv.rest_position.to_array())
@@ -210,8 +203,7 @@ pub fn init_pmx(
     });
 
     // ═════════════════════════════════════════════════════════════════════════
-    // 构建骨架 + IK 约束
-    // ═════════════════════════════════════════════════════════════════════════
+    // Build skeleton and IK constraints.
     let mut name_to_index = std::collections::HashMap::new();
     let bone_data: Vec<PmxBoneData> = bones
         .iter()
@@ -272,11 +264,10 @@ pub fn init_pmx(
     });
 
     // ═════════════════════════════════════════════════════════════════════════
-    // 构建 Bevy 材质列表
-    // ═════════════════════════════════════════════════════════════════════════
+    // Build Bevy material list.
     let model_dir = PathBuf::from(&cfg.paths.pmx)
         .parent()
-        .expect("PMX 路径无父目录")
+        .expect("PMX path has no parent directory")
         .to_path_buf();
     let normalize_sep = |s: &str| s.replace('\\', "/");
     let mut bevy_materials_list = Vec::new();
@@ -333,18 +324,11 @@ pub fn init_pmx(
         }));
     }
 
-    // ═════════════════════════════════════════════════════════════════════════
-    // 按材质分组建立子 Mesh 实体
-    //
-    // 【核心修复】
-    // 每个子 Mesh 共享同一套顶点（全部 vcount 个），
-    // 只是索引列表不同（引用该材质对应的那些三角面）。
-    // 顶点数据由 PmxSharedSkin 统一管理，每帧只蒙皮一次，
-    // 然后 apply_skin_to_meshes 把同一份结果写入每个 Mesh。
-    // ═════════════════════════════════════════════════════════════════════════
+    // Each sub-mesh shares the full vertex array (0..vcount) but has its own
+    // index list pointing into that material's triangles. PmxSharedSkin holds
+    // the single skinned result; apply_skin_to_meshes copies it to every Mesh.
     let face_groups = group_faces_by_material(&faces, &materials_pmx);
 
-    // 在 PMX 阶段把 Mesh/材质都创建好
     let init_positions: Vec<[f32; 3]> = (0..vcount)
         .map(|i| {
             let v = &vertices[i];
@@ -405,7 +389,7 @@ pub fn init_pmx(
         ));
     }
 
-    // 委托软体模块构建头发/裙摆软体（如果存在）
+    // Delegate soft-body creation (hair, skirt) to the softbody module.
     softbody::spawn_hair_from_pmx(
         commands,
         &vertices,
