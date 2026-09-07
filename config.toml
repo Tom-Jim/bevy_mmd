@@ -8,11 +8,11 @@ vmd = "VMD/贝洛伯格第三节.vmd"
 [softbody]
 # Soft-body shape matching parameters.
 # Position pull at a 60 Hz reference rate; converted for each time step.
-position_pull = 0.2
+position_pull = 0.08
 # Velocity pull coefficient.
-velocity_pull = 6.0
+velocity_pull = 2.5
 # Velocity retention at a 60 Hz reference rate; converted for each time step.
-damping = 0.95
+damping = 0.92
 # Maximum speed in model units per second.
 max_speed = 18.0
 # Constraint compliance; lower values are stiffer.
@@ -20,11 +20,20 @@ stretch_compliance = 0.000001
 shear_compliance = 0.0
 bend_compliance = 0.008
 # Jolt solver iterations.
-iterations = 80
+# 32 iterations keeps cloth stable while leaving CPU time for rendering.
+iterations = 32
 # Gravity multiplier; 1.0 is standard gravity.
 gravity_factor = 1.0
-collision_margin = 0.03
-max_distance = 0.8
+collision_margin = 0.025
+max_distance = 1.35
+# Hair has lighter gravity and stronger air resistance so strands can sag,
+# lift with motion, and settle without behaving like rigid strips.
+hair_gravity_factor = 0.72
+cloth_gravity_factor = 1.0
+hair_damping = 0.985
+cloth_damping = 0.965
+hair_air_drag = 0.65
+cloth_air_drag = 0.35
 
 [render]
 # Global material emissive strength.

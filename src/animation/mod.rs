@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use std::time::Instant;
 
 use PMXUtil::types::{Bone, Face, Material, VertexWeight};
 
@@ -7,7 +8,8 @@ use crate::components::{
     PmxSkeleton, SubMeshInfo, VmdPlayback,
 };
 use crate::physics::{
-    get_soft_body_vertices, step_physics, update_soft_body_roots, PHYSICS_SYSTEM_PTR,
+    apply_soft_body_vertex_params, constrain_soft_body_triangles, get_soft_body_vertices,
+    step_physics, update_soft_body_roots, PHYSICS_SYSTEM_PTR,
 };
 
 /// Per-frame animation pipeline: advance playback, sample VMD, solve FK/IK, and update GPU joints.
@@ -26,6 +28,7 @@ pub fn skin_update_system(
     else {
         return;
     };
+    let update_start = Instant::now();
 
     // Advance playback time.
     let previous_time = pb.time_sec;
@@ -37,13 +40,21 @@ pub fn skin_update_system(
     let t = pb.time_sec;
     let fps = pb.fps;
     let n = skel.bones.len();
-    let physics_indices = hair_data.as_ref().map(|hair| {
-        hair.sb_to_pmx_map
-            .iter()
-            .flatten()
-            .copied()
-            .collect::<std::collections::HashSet<_>>()
-    });
+    let physics_indices = hair_data
+        .as_ref()
+        .map(|hair| hair.physics_indices.as_slice());
+    if let Some(hair) = hair_data.as_ref() {
+        for &index in &hair.physics_indices {
+            if let Some(mask) = skin.physics_mask.get_mut(index) {
+                *mask = true;
+            }
+            if index < skin.skinned_positions.len() {
+                // Capture the last simulated state before this fixed step
+                // overwrites the shared array with the new animated target.
+                skin.previous_positions[index] = skin.skinned_positions[index];
+            }
+        }
+    }
 
     // Sample VMD local transforms.
     // VMD stores each bone's delta from its rest pose:
@@ -176,7 +187,7 @@ pub fn skin_update_system(
     }
 
     // Keep animated positions only for soft-body vertices. Rigid meshes use Bevy's WGSL skinning.
-    let mut animated_positions = std::collections::HashMap::<usize, Vec3>::new();
+    let mut collision_triangles = Vec::new();
     if let Some(indices) = physics_indices.as_ref() {
         // Build skin matrices only when the native soft-body bridge needs CPU targets.
         let skin_mats: Vec<Mat4> = (0..n)
@@ -186,33 +197,67 @@ pub fn skin_update_system(
             })
             .collect();
 
+        let collision_positions: Vec<Vec3> = skel
+            .collision_vertex_indices
+            .iter()
+            .map(|&vertex_index| {
+                let vertex = &skin.vertices[vertex_index];
+                let mut position = Vec3::ZERO;
+                let mut weight_sum = 0.0f32;
+                for (&bone_index, &weight) in
+                    vertex.bone_indices.iter().zip(vertex.bone_weights.iter())
+                {
+                    if bone_index < 0 || weight <= 0.0 {
+                        continue;
+                    }
+                    let bone_index = bone_index as usize;
+                    if let Some(matrix) = skin_mats.get(bone_index) {
+                        position += matrix.transform_point3(vertex.rest_position) * weight;
+                        weight_sum += weight;
+                    }
+                }
+                if weight_sum > 0.0 {
+                    position / weight_sum
+                } else {
+                    vertex.rest_position
+                }
+            })
+            .collect();
+        collision_triangles.reserve(skel.collision_triangles.len() * 9);
+        for triangle in &skel.collision_triangles {
+            for &vertex_index in &triangle.vertices {
+                if let Some(position) = collision_positions.get(vertex_index as usize) {
+                    collision_triangles.extend_from_slice(&position.to_array());
+                }
+            }
+        }
+
         // Apply morphs only to the subset consumed by soft-body physics.
-        let mut morphed_positions =
-            std::collections::HashMap::<usize, Vec3>::with_capacity(indices.len());
-        for &vi in indices {
+        let mut morphed_positions = vec![Vec3::ZERO; skin.vertices.len()];
+        let mut physics_mask = vec![false; skin.vertices.len()];
+        for &vi in indices.iter() {
             if let Some(vertex) = skin.vertices.get(vi) {
-                morphed_positions.insert(vi, vertex.rest_position);
+                morphed_positions[vi] = vertex.rest_position;
+                physics_mask[vi] = true;
             }
         }
         for morph in &skel.morphs {
             if let Some(weight) = pb.clip.sample_morph_at_seconds(&morph.name, t, fps) {
                 if weight.abs() > 1e-4 {
                     for vm in &morph.offsets {
-                        if let Some(position) = morphed_positions.get_mut(&vm.index) {
-                            *position += vm.offset * weight;
+                        if vm.index < physics_mask.len() && physics_mask[vm.index] {
+                            morphed_positions[vm.index] += vm.offset * weight;
                         }
                     }
                 }
             }
         }
 
-        animated_positions.reserve(indices.len());
-        for &vi in indices {
+        for &vi in indices.iter() {
             let Some(sv) = skin.vertices.get(vi) else {
                 continue;
             };
-            let rest_position = sv.rest_position;
-            let morphed_position = morphed_positions.get(&vi).copied().unwrap_or(rest_position);
+            let morphed_position = morphed_positions[vi];
             let mut pos = Vec3::ZERO;
             let mut nor = Vec3::ZERO;
             let mut wsum = 0.0f32;
@@ -240,7 +285,6 @@ pub fn skin_update_system(
                 pos = morphed_position;
                 nor = sv.rest_normal;
             }
-            animated_positions.insert(vi, pos);
             skin.skinned_positions[vi] = pos.to_array();
             skin.skinned_normals[vi] = nor.normalize_or_zero().to_array();
         }
@@ -261,16 +305,29 @@ pub fn skin_update_system(
 
         // Each frame, feed the full set of target skinned positions to the physics engine.
         let num_sb_verts = hair.representative_pmx_indices.len();
-        let mut all_positions = Vec::with_capacity(num_sb_verts * 3);
-        let mut all_sb_indices = Vec::with_capacity(num_sb_verts);
+        hair.all_positions_buffer.clear();
+        hair.all_sb_indices_buffer.clear();
+        hair.root_positions_buffer.clear();
 
-        for (sb_idx, &pmx_idx) in hair.representative_pmx_indices.iter().enumerate() {
-            let pos = animated_positions
-                .get(&pmx_idx)
-                .copied()
-                .unwrap_or(skin.vertices[pmx_idx].rest_position);
-            all_positions.extend_from_slice(&pos.to_array());
-            all_sb_indices.push(sb_idx as i32);
+        for sb_idx in 0..hair.representative_pmx_indices.len() {
+            let pmx_idx = hair.representative_pmx_indices[sb_idx];
+            hair.all_positions_buffer
+                .extend_from_slice(&skin.skinned_positions[pmx_idx]);
+            hair.all_sb_indices_buffer.push(sb_idx as i32);
+        }
+
+        hair.collision_triangles_buffer.clear();
+        hair.collision_triangles_buffer
+            .extend_from_slice(&collision_triangles);
+
+        for root_index in 0..hair.root_sb_indices.len() {
+            let root_sb_index = hair.root_sb_indices[root_index];
+            let sb_index = root_sb_index as usize;
+            let Some(&pmx_index) = hair.representative_pmx_indices.get(sb_index) else {
+                continue;
+            };
+            hair.root_positions_buffer
+                .extend_from_slice(&skin.skinned_positions[pmx_index]);
         }
 
         unsafe {
@@ -278,9 +335,9 @@ pub fn skin_update_system(
             update_soft_body_roots(
                 physics_system,
                 hair.ptr,
-                all_positions.as_ptr(),
-                all_sb_indices.as_ptr(),
-                all_sb_indices.len() as i32,
+                hair.root_positions_buffer.as_ptr(),
+                hair.root_sb_indices.as_ptr(),
+                hair.root_sb_indices.len() as i32,
                 is_first, // 1 = teleport vertices, 0 = apply pull force
                 time.delta_secs(),
                 cfg.softbody.position_pull,
@@ -289,58 +346,91 @@ pub fn skin_update_system(
                 cfg.softbody.max_speed,
             );
 
-            step_physics(time.delta_secs());
-            let mut capsules = Vec::with_capacity(skel.colliders.len() * 11);
-            for collider in &skel.colliders {
-                let rotation = world_rot[collider.bone];
-                let center = world_pos[collider.bone] + rotation * collider.offset;
-                capsules.extend_from_slice(&center.to_array());
-                capsules.extend_from_slice(&(rotation * collider.rotation).to_array());
-                let mut size = collider.size;
-                if collider.kind == 1.0 {
-                    size += Vec3::splat(cfg.softbody.collision_margin);
-                } else {
-                    size.x += cfg.softbody.collision_margin;
-                }
-                capsules.extend_from_slice(&size.to_array());
-                capsules.push(collider.kind);
-            }
-            crate::physics::constrain_soft_body(
+            apply_soft_body_vertex_params(
                 physics_system,
                 hair.ptr,
-                capsules.as_ptr(),
-                (capsules.len() / 11) as i32,
-                all_positions.as_ptr(),
-                cfg.softbody.max_distance,
+                hair.vertex_groups.as_ptr(),
+                hair.vertex_groups.len() as i32,
+                time.delta_secs(),
+                cfg.softbody.gravity_factor,
+                cfg.softbody.hair_gravity_factor,
+                cfg.softbody.cloth_gravity_factor,
+                cfg.softbody.hair_damping,
+                cfg.softbody.cloth_damping,
+                cfg.softbody.hair_air_drag,
+                cfg.softbody.cloth_air_drag,
             );
 
+            let solver_start = Instant::now();
+            step_physics(time.delta_secs());
+            let solver_ms = solver_start.elapsed().as_secs_f64() * 1000.0;
+            if solver_ms > 20.0 {
+                warn!("Jolt solver took {:.1} ms", solver_ms);
+            }
+            let collision_start = Instant::now();
+            if !collision_triangles.is_empty() {
+                constrain_soft_body_triangles(
+                    physics_system,
+                    hair.ptr,
+                    hair.collision_triangles_buffer.as_ptr(),
+                    (hair.collision_triangles_buffer.len() / 9) as i32,
+                    hair.all_positions_buffer.as_ptr(),
+                    cfg.softbody.max_distance,
+                    cfg.softbody.collision_margin,
+                );
+            } else {
+                let mut capsules = Vec::with_capacity(skel.colliders.len() * 11);
+                for collider in &skel.colliders {
+                    let rotation = world_rot[collider.bone];
+                    let center = world_pos[collider.bone] + rotation * collider.offset;
+                    capsules.extend_from_slice(&center.to_array());
+                    capsules.extend_from_slice(&(rotation * collider.rotation).to_array());
+                    let mut size = collider.size;
+                    if collider.kind == 1.0 {
+                        size += Vec3::splat(cfg.softbody.collision_margin);
+                    } else {
+                        size.x += cfg.softbody.collision_margin;
+                    }
+                    capsules.extend_from_slice(&size.to_array());
+                    capsules.push(collider.kind);
+                }
+                crate::physics::constrain_soft_body(
+                    physics_system,
+                    hair.ptr,
+                    capsules.as_ptr(),
+                    (capsules.len() / 11) as i32,
+                    hair.all_positions_buffer.as_ptr(),
+                    cfg.softbody.max_distance,
+                );
+            }
+            let collision_ms = collision_start.elapsed().as_secs_f64() * 1000.0;
+            if collision_ms > 20.0 {
+                warn!("collision projection took {:.1} ms", collision_ms);
+            }
+
             // Read back physics-computed positions and overwrite the skinned result.
-            let mut current_vertices = vec![0.0f32; num_sb_verts * 3];
+            hair.current_vertices_buffer.clear();
+            hair.current_vertices_buffer.resize(num_sb_verts * 3, 0.0);
             get_soft_body_vertices(
                 physics_system,
                 hair.ptr,
-                current_vertices.as_mut_ptr(),
+                hair.current_vertices_buffer.as_mut_ptr(),
                 num_sb_verts as i32,
             );
 
             for sb_idx in 0..num_sb_verts {
-                let px = current_vertices[sb_idx * 3];
-                let py = current_vertices[sb_idx * 3 + 1];
-                let pz = current_vertices[sb_idx * 3 + 2];
+                let px = hair.current_vertices_buffer[sb_idx * 3];
+                let py = hair.current_vertices_buffer[sb_idx * 3 + 1];
+                let pz = hair.current_vertices_buffer[sb_idx * 3 + 2];
+                let representative = hair.representative_pmx_indices[sb_idx];
+                let representative_position = skin.skinned_positions[representative];
 
                 for &pmx_idx in &hair.sb_to_pmx_map[sb_idx] {
                     if pmx_idx < skin.skinned_positions.len() {
                         // Overwrite skinned position with physics result, adding the
                         // per-vertex offset to preserve cloth thickness at seams.
-                        let representative = hair.representative_pmx_indices[sb_idx];
-                        let animated_offset = animated_positions
-                            .get(&pmx_idx)
-                            .copied()
-                            .unwrap_or(skin.vertices[pmx_idx].rest_position)
-                            - animated_positions
-                                .get(&representative)
-                                .copied()
-                                .unwrap_or(skin.vertices[representative].rest_position);
+                        let animated_offset = Vec3::from(skin.skinned_positions[pmx_idx])
+                            - Vec3::from(representative_position);
                         skin.skinned_positions[pmx_idx] =
                             (Vec3::new(px, py, pz) + animated_offset).to_array();
                     }
@@ -349,6 +439,10 @@ pub fn skin_update_system(
         }
         hair.is_initialized = true;
     }
+    let elapsed_ms = update_start.elapsed().as_secs_f64() * 1000.0;
+    if elapsed_ms > 20.0 {
+        warn!("animation/physics fixed step took {:.1} ms", elapsed_ms);
+    }
 }
 
 /// Copies the shared skin result into each sub-mesh Asset.
@@ -356,28 +450,46 @@ pub fn skin_update_system(
 /// All sub-meshes share the same vertex range (0..vcount), so this is a
 /// per-mesh memcpy rather than a second skinning pass — roughly 50× faster.
 pub fn apply_skin_to_meshes(
+    fixed_time: Res<Time<Fixed>>,
     shared_skin: Option<Res<PmxSharedSkin>>,
     mesh_query: Query<(&SubMeshInfo, &Mesh3d), With<CpuDeformed>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
 ) {
+    let mesh_update_start = Instant::now();
     let Some(skin) = shared_skin.as_ref() else {
         return;
     };
+    let alpha = fixed_time.overstep_fraction().clamp(0.0, 1.0);
 
     for (info, mesh3d) in &mesh_query {
         let Some(mut mesh) = mesh_assets.get_mut(&mesh3d.0) else {
             continue;
         };
-        let start = info.vertex_start;
-        let end = info.vertex_end.min(skin.skinned_positions.len());
-        mesh.insert_attribute(
-            Mesh::ATTRIBUTE_POSITION,
-            skin.skinned_positions[start..end].to_vec(),
-        );
+        let positions: Vec<[f32; 3]> = info
+            .pmx_vertex_indices
+            .iter()
+            .map(|&index| {
+                if skin.physics_mask.get(index).copied().unwrap_or(false) {
+                    let previous = Vec3::from(skin.previous_positions[index]);
+                    let current = Vec3::from(skin.skinned_positions[index]);
+                    previous.lerp(current, alpha).to_array()
+                } else {
+                    skin.skinned_positions[index]
+                }
+            })
+            .collect();
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
         mesh.insert_attribute(
             Mesh::ATTRIBUTE_NORMAL,
-            skin.skinned_normals[start..end].to_vec(),
+            info.pmx_vertex_indices
+                .iter()
+                .map(|&index| skin.skinned_normals[index])
+                .collect::<Vec<_>>(),
         );
+    }
+    let elapsed_ms = mesh_update_start.elapsed().as_secs_f64() * 1000.0;
+    if elapsed_ms > 20.0 {
+        warn!("soft-body mesh upload took {:.1} ms", elapsed_ms);
     }
 }
 

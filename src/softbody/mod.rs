@@ -166,6 +166,7 @@ pub fn spawn_hair_from_pmx(
     let mut root_pmx_indices = Vec::new();
     let mut representative_pmx_indices = Vec::new();
     let mut sb_to_pmx_map: Vec<Vec<usize>> = Vec::new();
+    let mut vertex_groups: Vec<u8> = Vec::new();
     let mut pos_to_sb = std::collections::HashMap::new();
 
     let mut main_pmx_indices = std::collections::BTreeSet::new();
@@ -181,11 +182,22 @@ pub fn spawn_hair_from_pmx(
         let name = &materials_pmx[mat_idx].name;
         is_hair_mat.insert(mat_idx, hair_keywords.iter().any(|&k| name.contains(k)));
     }
+    let mut is_hair_vertex = std::collections::HashMap::<u32, bool>::new();
+    for &mat_idx in &main_mat_indices {
+        let hair = is_hair_mat.get(&mat_idx).copied().unwrap_or(false);
+        for &idx in &face_groups[mat_idx].1 {
+            let entry = is_hair_vertex.entry(idx).or_insert(false);
+            *entry |= hair;
+        }
+    }
 
     for &pmx_idx in &main_pmx_indices {
         let v = &vertices[pmx_idx as usize];
         let mat_idx = vertex_to_mat.get(&pmx_idx).copied().unwrap_or(0);
-        let is_hair = is_hair_mat.get(&mat_idx).copied().unwrap_or(false);
+        let is_hair = is_hair_vertex
+            .get(&pmx_idx)
+            .copied()
+            .unwrap_or_else(|| is_hair_mat.get(&mat_idx).copied().unwrap_or(false));
 
         let qx = (v.position[0] * 100000.0).round() as i32;
         let qy = (v.position[1] * 100000.0).round() as i32;
@@ -217,6 +229,9 @@ pub fn spawn_hair_from_pmx(
             pmx_to_sb_map.insert(pmx_idx, sb_idx);
 
             sb_to_pmx_map[sb_idx as usize].push(pmx_idx as usize);
+            if is_hair {
+                vertex_groups[sb_idx as usize] = 1;
+            }
 
             if is_anchored && sb_inv_masses[sb_idx as usize] != 0.0 {
                 sb_inv_masses[sb_idx as usize] = 0.0;
@@ -229,6 +244,7 @@ pub fn spawn_hair_from_pmx(
 
             representative_pmx_indices.push(pmx_idx as usize);
             sb_to_pmx_map.push(vec![pmx_idx as usize]);
+            vertex_groups.push(u8::from(is_hair));
 
             sb_vertices.push(v.position[0]);
             sb_vertices.push(v.position[1]);
@@ -359,6 +375,14 @@ pub fn spawn_hair_from_pmx(
     }
 
     if !sb_vertices.is_empty() && !sb_indices.is_empty() {
+        let mut root_sb_indices: Vec<i32> = root_pmx_indices
+            .iter()
+            .filter_map(|pmx_idx| pmx_to_sb_map.get(&(*pmx_idx as u32)).copied())
+            .map(|index| index as i32)
+            .collect();
+        root_sb_indices.sort_unstable();
+        root_sb_indices.dedup();
+        let root_count = root_sb_indices.len();
         unsafe {
             let physics_system = PHYSICS_SYSTEM_PTR.load(std::sync::atomic::Ordering::SeqCst);
             let soft_ptr = crate::physics::create_soft_body_from_mesh(
@@ -376,6 +400,7 @@ pub fn spawn_hair_from_pmx(
             );
 
             if !soft_ptr.is_null() {
+                let physics_indices = sb_to_pmx_map.iter().flatten().copied().collect();
                 info!(
                     "spawned softbody: main_verts={}, acc_verts={}, physics_verts={}, pinned_roots={}",
                     main_pmx_indices.len(),
@@ -387,7 +412,15 @@ pub fn spawn_hair_from_pmx(
                 commands.insert_resource(HairPhysicsData {
                     ptr: soft_ptr,
                     representative_pmx_indices,
+                    root_sb_indices,
                     sb_to_pmx_map,
+                    physics_indices,
+                    collision_triangles_buffer: Vec::new(),
+                    all_positions_buffer: Vec::with_capacity((sb_vertices.len() / 3) * 3),
+                    all_sb_indices_buffer: Vec::with_capacity(sb_vertices.len() / 3),
+                    root_positions_buffer: Vec::with_capacity(root_count * 3),
+                    current_vertices_buffer: Vec::with_capacity((sb_vertices.len() / 3) * 3),
+                    vertex_groups,
                     is_initialized: false,
                 });
             }

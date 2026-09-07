@@ -13,6 +13,8 @@ cargo build --release --locked
 
 These commands compile only. They do not open the Bevy window or run tests. `run.sh` is also compile-only. The native build uses Zig `ReleaseSafe`; on macOS it repacks static archives so the linker can consume Zig object alignment correctly.
 
+When the player is run interactively, Bevy's frame-time diagnostics log smoothed FPS and frame time once per second. This is intended to make frame pacing regressions visible without adding a debug overlay to the scene.
+
 The native Jolt bridge currently targets host builds and is not configured for Rust cross compilation. Linux builds need the usual graphics, audio, libc++, and development packages.
 
 ## Model and Motion Input
@@ -43,9 +45,9 @@ CPU work remains where it is required: PMX/VMD parsing, file I/O, FK/IK control 
 
 ## Physics
 
-Animation, FK/IK control, and physics advance at a fixed 120 Hz step. Cloth vertices are welded by material domain, anchored to load-bearing bones, and driven by time-step-scaled shape matching. Stretch, shear, bend compliance, solver iterations, gravity, damping, and speed limits are configured in `config.toml`.
+Animation, FK/IK control, and physics advance at a fixed 60 Hz step. Cloth vertices are welded by material domain, anchored to load-bearing bones, and driven by time-step-scaled shape matching. Stretch, shear, bend compliance, solver iterations, gravity, damping, and speed limits are configured in `config.toml`.
 
-Static PMX rigid bodies attached to bones become sphere, box, or capsule collision proxies. Contact projection removes inward velocity and clamps excessive displacement. NaN recovery, loop restart, and model/motion replacement reset the soft-body state. The zphysics allocator uses synchronized access to its allocation map.
+Rigid PMX surface triangles form a deforming collision shell and use the same four-bone weighted skinning as the visible mesh, so animated collision geometry stays aligned with the rendered model. Static PMX rigid bodies remain available as a fallback sphere, box, or capsule proxy when a model has no usable shell. Contact projection removes inward velocity, handles large shell triangles through a fallback broad phase, and clamps excessive displacement. NaN recovery, loop restart, and model/motion replacement reset the soft-body state. The zphysics allocator uses synchronized access to its allocation map.
 
 The current solver does not provide cloth self-collision, continuous collision detection, or the full PMX dynamic rigid-body and joint chain. Models without useful static collision bodies can still intersect during extreme motion.
 

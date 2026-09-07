@@ -56,6 +56,9 @@ export fn jolt_init() *anyopaque {
             .max_contact_constraints = 1024,
         },
     ) catch unreachable;
+    // PMX uses Y-up coordinates; set gravity explicitly because the native
+    // backend does not guarantee a non-zero default gravity.
+    g_physics_system.setGravity(.{ 0.0, -9.81, 0.0 });
 
     std.debug.print("Jolt Physics System Initialized with Custom Interfaces!\n", .{});
     return @ptrCast(g_physics_system);
@@ -63,7 +66,7 @@ export fn jolt_init() *anyopaque {
 
 export fn step_physics(delta_time: f32) void {
     if (@intFromPtr(g_physics_system) != 0) {
-        // Rust schedules fixed 1/120-second updates.
+        // Rust schedules fixed 1/60-second updates.
         g_physics_system.update(delta_time, .{ .collision_steps = 1 }) catch |err| {
             std.debug.print("Physics update failed: {}\n", .{err});
         };

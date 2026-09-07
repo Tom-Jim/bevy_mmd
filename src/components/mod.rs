@@ -10,7 +10,16 @@ use crate::vmd::VmdMotionClip;
 pub struct HairPhysicsData {
     pub ptr: *mut c_void,
     pub representative_pmx_indices: Vec<usize>, // one canonical PMX index per soft-body vertex, drives physics
+    pub root_sb_indices: Vec<i32>,              // animated anchor vertices only
     pub sb_to_pmx_map: Vec<Vec<usize>>, // all PMX indices per soft-body vertex, drives render sync
+    pub physics_indices: Vec<usize>,    // deduplicated PMX vertices that require CPU skinning
+    pub collision_triangles_buffer: Vec<f32>,
+    pub all_positions_buffer: Vec<f32>,
+    pub all_sb_indices_buffer: Vec<i32>,
+    pub root_positions_buffer: Vec<f32>,
+    pub current_vertices_buffer: Vec<f32>,
+    /// Per-particle material group: 0 = cloth, 1 = hair.
+    pub vertex_groups: Vec<u8>,
     pub is_initialized: bool,
 }
 unsafe impl Send for HairPhysicsData {}
@@ -33,6 +42,10 @@ pub struct PmxSharedSkin {
     /// Written each frame by `skin_update_system`.
     pub skinned_positions: Vec<[f32; 3]>,
     pub skinned_normals: Vec<[f32; 3]>,
+    /// Previous fixed-step positions used to interpolate soft-body rendering.
+    pub previous_positions: Vec<[f32; 3]>,
+    /// Marks vertices that are physically simulated and therefore interpolated.
+    pub physics_mask: Vec<bool>,
 }
 
 #[derive(Component)]
@@ -43,11 +56,10 @@ pub struct PmxBone {
 #[derive(Component)]
 pub struct CpuDeformed;
 
-/// Global vertex slice [vertex_start, vertex_end) this sub-mesh reads from `PmxSharedSkin`.
+/// Global PMX vertex indices used by this sub-mesh, in local mesh order.
 #[derive(Component)]
 pub struct SubMeshInfo {
-    pub vertex_start: usize,
-    pub vertex_end: usize,
+    pub pmx_vertex_indices: Vec<usize>,
 }
 
 #[derive(Clone)]
@@ -99,6 +111,8 @@ pub struct PmxSkeleton {
     pub ik_constraints: Vec<IkConstraint>,
     pub morphs: Vec<PmxMorphData>,
     pub colliders: Vec<PmxCollider>,
+    pub collision_triangles: Vec<PmxCollisionTriangle>,
+    pub collision_vertex_indices: Vec<usize>,
 }
 
 #[derive(Resource)]
@@ -148,4 +162,9 @@ pub struct PmxCollider {
     pub rotation: Quat,
     pub size: Vec3,
     pub kind: f32,
+}
+
+/// A rigid model-surface triangle used as a deforming collision shell.
+pub struct PmxCollisionTriangle {
+    pub vertices: [u32; 3],
 }

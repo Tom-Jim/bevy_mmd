@@ -12,6 +12,15 @@ unsafe extern "C" {
         targets: *const f32,
         max_distance: f32,
     );
+    pub fn constrain_soft_body_triangles(
+        system: *mut c_void,
+        body: *mut c_void,
+        triangles: *const f32,
+        triangle_count: i32,
+        targets: *const f32,
+        max_distance: f32,
+        thickness: f32,
+    );
     pub fn jolt_shutdown();
     pub fn jolt_init() -> *mut c_void;
     pub fn destroy_soft_body(physics_system: *mut c_void, body: *mut c_void);
@@ -51,6 +60,21 @@ unsafe extern "C" {
         velocity_pull: f32,
         damping: f32,
         max_speed: f32,
+    );
+
+    pub fn apply_soft_body_vertex_params(
+        physics_system: *mut c_void,
+        body_id: *mut c_void,
+        groups: *const u8,
+        count: i32,
+        delta_time: f32,
+        base_gravity: f32,
+        hair_gravity: f32,
+        cloth_gravity: f32,
+        hair_damping: f32,
+        cloth_damping: f32,
+        hair_air_drag: f32,
+        cloth_air_drag: f32,
     );
 }
 

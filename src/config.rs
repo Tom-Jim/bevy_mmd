@@ -28,6 +28,37 @@ pub struct SoftBodyConfig {
     pub gravity_factor: f32,
     pub collision_margin: f32,
     pub max_distance: f32,
+    #[serde(default = "default_hair_gravity_factor")]
+    pub hair_gravity_factor: f32,
+    #[serde(default = "default_cloth_gravity_factor")]
+    pub cloth_gravity_factor: f32,
+    #[serde(default = "default_hair_damping")]
+    pub hair_damping: f32,
+    #[serde(default = "default_cloth_damping")]
+    pub cloth_damping: f32,
+    #[serde(default = "default_hair_air_drag")]
+    pub hair_air_drag: f32,
+    #[serde(default = "default_cloth_air_drag")]
+    pub cloth_air_drag: f32,
+}
+
+fn default_hair_gravity_factor() -> f32 {
+    0.72
+}
+fn default_cloth_gravity_factor() -> f32 {
+    1.0
+}
+fn default_hair_damping() -> f32 {
+    0.985
+}
+fn default_cloth_damping() -> f32 {
+    0.965
+}
+fn default_hair_air_drag() -> f32 {
+    0.65
+}
+fn default_cloth_air_drag() -> f32 {
+    0.35
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -59,7 +90,13 @@ impl Config {
                 soft.bend_compliance,
                 soft.gravity_factor,
                 soft.collision_margin,
-                soft.max_distance
+                soft.max_distance,
+                soft.hair_gravity_factor,
+                soft.cloth_gravity_factor,
+                soft.hair_damping,
+                soft.cloth_damping,
+                soft.hair_air_drag,
+                soft.cloth_air_drag
             ]
             .iter()
             .all(|v| v.is_finite() && *v >= 0.0),
@@ -70,6 +107,8 @@ impl Config {
                 && soft.damping <= 1.0
                 && soft.max_distance > 0.0
                 && soft.max_speed > 0.0
+                && soft.hair_damping <= 1.0
+                && soft.cloth_damping <= 1.0
                 && (1..=128).contains(&soft.iterations),
             "Invalid physics parameter range"
         );

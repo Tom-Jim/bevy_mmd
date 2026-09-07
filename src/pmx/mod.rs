@@ -13,6 +13,12 @@ use crate::components::*;
 use crate::config::Config;
 use crate::softbody;
 
+fn is_soft_material(name: &str) -> bool {
+    ["发", "髪", "毛", "裙", "衣", "披肩", "摆", "擺", "辫"]
+        .iter()
+        .any(|keyword| name.contains(keyword))
+}
+
 /// Loads a PMX file and builds all ECS resources: materials, meshes, skeleton, skinning data, and soft bodies.
 pub fn init_pmx(
     commands: &mut Commands,
@@ -114,6 +120,11 @@ pub fn init_pmx(
         vertices: skin_vertices.clone(),
         skinned_positions: init_positions,
         skinned_normals: init_normals,
+        previous_positions: skin_vertices
+            .iter()
+            .map(|vertex| vertex.rest_position.to_array())
+            .collect(),
+        physics_mask: vec![false; vcount],
     });
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -170,10 +181,7 @@ pub fn init_pmx(
     let colliders = rigids
         .iter()
         .filter_map(|rigid| {
-            if rigid.calc_method != PMXUtil::types::RigidCalcMethod::Static
-                || rigid.bone_index < 0
-                || rigid.bone_index as usize >= bone_data.len()
-            {
+            if rigid.bone_index < 0 || rigid.bone_index as usize >= bone_data.len() {
                 return None;
             }
             let bone = rigid.bone_index as usize;
@@ -200,6 +208,49 @@ pub fn init_pmx(
             })
         })
         .collect();
+    let mut collision_triangles = Vec::new();
+    let mut collision_vertex_indices = Vec::new();
+    let mut collision_lookup = std::collections::HashMap::<usize, u32>::new();
+    let collision_center = skin_vertices
+        .iter()
+        .fold(Vec3::ZERO, |sum, vertex| sum + vertex.rest_position)
+        / skin_vertices.len().max(1) as f32;
+    let mut face_cursor = 0usize;
+    for material in &materials_pmx {
+        let triangle_count = (material.num_face_vertices / 3) as usize;
+        if is_soft_material(&material.name) {
+            face_cursor += triangle_count;
+            continue;
+        }
+        for _ in 0..triangle_count {
+            let face = &faces[face_cursor];
+            let mut triangle_indices = [0u32; 3];
+            for (corner, triangle_index) in triangle_indices.iter_mut().enumerate() {
+                let vertex_index = face.vertices[corner] as usize;
+                *triangle_index = *collision_lookup.entry(vertex_index).or_insert_with(|| {
+                    let local_index = collision_vertex_indices.len() as u32;
+                    collision_vertex_indices.push(vertex_index);
+                    local_index
+                });
+            }
+            // Keep a consistent outward winding so the native solver can
+            // distinguish a point inside the closed shell from one outside.
+            let rest_a = skin_vertices[face.vertices[0] as usize].rest_position;
+            let rest_b = skin_vertices[face.vertices[1] as usize].rest_position;
+            let rest_c = skin_vertices[face.vertices[2] as usize].rest_position;
+            let edge_a = rest_b - rest_a;
+            let edge_b = rest_c - rest_a;
+            let face_normal = edge_a.cross(edge_b);
+            let face_center = (rest_a + rest_b + rest_c) / 3.0;
+            if face_normal.dot(face_center - collision_center) < 0.0 {
+                triangle_indices.swap(1, 2);
+            }
+            collision_triangles.push(PmxCollisionTriangle {
+                vertices: triangle_indices,
+            });
+            face_cursor += 1;
+        }
+    }
     let bone_entities: Vec<Entity> = (0..bone_data.len())
         .map(|index| {
             commands
@@ -223,6 +274,8 @@ pub fn init_pmx(
         ik_constraints,
         morphs: morph_data,
         colliders,
+        collision_triangles,
+        collision_vertex_indices,
     });
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -292,9 +345,9 @@ pub fn init_pmx(
         }));
     }
 
-    // Each sub-mesh shares the full vertex array (0..vcount) but has its own
-    // index list pointing into that material's triangles. PmxSharedSkin holds
-    // the single skinned result; apply_skin_to_meshes copies it to every Mesh.
+    // Each sub-mesh stores only the vertices referenced by its material faces.
+    // PmxSharedSkin keeps the global PMX skin result used to update these local
+    // mesh buffers without duplicating the complete model for every material.
     let face_groups = group_faces_by_material(&faces, &materials_pmx);
 
     let init_positions: Vec<[f32; 3]> = (0..vcount)
@@ -320,38 +373,70 @@ pub fn init_pmx(
             .draw_mode
             .contains(MaterialFlags::DISABLE_CULLING);
 
-        let mut flipped_indices = Vec::with_capacity(face_indices.len());
-        for tri in face_indices.as_chunks::<3>().0 {
+        let mut pmx_vertex_indices = Vec::new();
+        let mut local_lookup = std::collections::HashMap::<u32, u32>::new();
+        let mut local_face_indices = Vec::with_capacity(face_indices.len());
+        for &global_index in &face_indices {
+            let local_index = if let Some(&index) = local_lookup.get(&global_index) {
+                index
+            } else {
+                let index = pmx_vertex_indices.len() as u32;
+                local_lookup.insert(global_index, index);
+                pmx_vertex_indices.push(global_index as usize);
+                index
+            };
+            local_face_indices.push(local_index);
+        }
+
+        let mut flipped_indices = Vec::with_capacity(local_face_indices.len());
+        for tri in local_face_indices.as_chunks::<3>().0 {
             flipped_indices.push(tri[0]);
             flipped_indices.push(tri[2]);
             flipped_indices.push(tri[1]);
         }
         let final_indices: Vec<u32> = if double_sided {
-            let mut doubled = Vec::with_capacity(face_indices.len() * 2);
+            let mut doubled = Vec::with_capacity(local_face_indices.len() * 2);
             doubled.extend_from_slice(&flipped_indices);
-            doubled.extend_from_slice(&face_indices);
+            doubled.extend_from_slice(&local_face_indices);
             doubled
         } else {
             flipped_indices
         };
 
-        let soft_material = ["发", "髪", "毛", "裙", "衣", "披肩", "摆", "擺", "辫"]
-            .iter()
-            .any(|keyword| materials_pmx[mat_index].name.contains(keyword));
+        let soft_material = is_soft_material(&materials_pmx[mat_index].name);
 
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         );
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, init_positions.clone());
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, init_normals.clone());
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, init_uvs.clone());
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            pmx_vertex_indices
+                .iter()
+                .map(|&index| init_positions[index])
+                .collect::<Vec<_>>(),
+        );
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_NORMAL,
+            pmx_vertex_indices
+                .iter()
+                .map(|&index| init_normals[index])
+                .collect::<Vec<_>>(),
+        );
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_UV_0,
+            pmx_vertex_indices
+                .iter()
+                .map(|&index| init_uvs[index])
+                .collect::<Vec<_>>(),
+        );
         if !soft_material {
             mesh.insert_attribute(
                 Mesh::ATTRIBUTE_JOINT_INDEX,
                 bevy::mesh::VertexAttributeValues::Uint16x4(
-                    skin_vertices
+                    pmx_vertex_indices
                         .iter()
+                        .map(|&index| &skin_vertices[index])
                         .map(|v| {
                             [
                                 v.bone_indices[0].max(0) as u16,
@@ -365,9 +450,9 @@ pub fn init_pmx(
             );
             mesh.insert_attribute(
                 Mesh::ATTRIBUTE_JOINT_WEIGHT,
-                skin_vertices
+                pmx_vertex_indices
                     .iter()
-                    .map(|v| v.bone_weights)
+                    .map(|&index| skin_vertices[index].bone_weights)
                     .collect::<Vec<_>>(),
             );
         }
@@ -380,10 +465,7 @@ pub fn init_pmx(
             MeshMaterial3d(bevy_materials_list[mat_index].clone()),
             Transform::default(),
             bevy::camera::visibility::NoFrustumCulling,
-            SubMeshInfo {
-                vertex_start: 0,
-                vertex_end: vcount,
-            },
+            SubMeshInfo { pmx_vertex_indices },
         ));
         if soft_material {
             entity.insert(CpuDeformed);
