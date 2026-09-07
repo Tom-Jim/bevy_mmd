@@ -26,7 +26,8 @@ pub struct SoftBodyConfig {
     pub bend_compliance: f32,
     pub iterations: i32,
     pub gravity_factor: f32,
-    pub update_position: bool,
+    pub collision_margin: f32,
+    pub max_distance: f32,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -39,13 +40,39 @@ pub struct RenderConfig {
 }
 
 impl Config {
-    pub fn load_from_assets() -> Self {
-        let path = "src/config.toml";
-        
-        let s = fs::read_to_string(path)
-            .expect(&format!("[config] fatal: cannot read config file {}", path));
+    pub fn load() -> Self {
+        let path = "config.toml";
 
-        toml::from_str::<Config>(&s)
-            .expect("[config] fatal: TOML parse failed — verify field names and types")
+        let s = fs::read_to_string(path).unwrap_or_else(|e| panic!("Cannot read {path}: {e}"));
+
+        let cfg = toml::from_str::<Config>(&s)
+            .expect("[config] fatal: TOML parse failed — verify field names and types");
+        let soft = &cfg.softbody;
+        assert!(
+            [
+                soft.position_pull,
+                soft.velocity_pull,
+                soft.damping,
+                soft.max_speed,
+                soft.stretch_compliance,
+                soft.shear_compliance,
+                soft.bend_compliance,
+                soft.gravity_factor,
+                soft.collision_margin,
+                soft.max_distance
+            ]
+            .iter()
+            .all(|v| v.is_finite() && *v >= 0.0),
+            "Physics parameters must be finite and nonnegative"
+        );
+        assert!(
+            soft.position_pull <= 1.0
+                && soft.damping <= 1.0
+                && soft.max_distance > 0.0
+                && soft.max_speed > 0.0
+                && (1..=128).contains(&soft.iterations),
+            "Invalid physics parameter range"
+        );
+        cfg
     }
 }

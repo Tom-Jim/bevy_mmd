@@ -1,96 +1,78 @@
-use std::env;
-use std::path::PathBuf;
-use std::process::Command;
+use std::{env, path::PathBuf, process::Command};
 
 fn main() {
-    println!("cargo:rerun-if-changed=src/api.zig");
-    println!("cargo:rerun-if-changed=build.zig");
-    // 监控整个 build.zig 文件
-    println!("cargo:rerun-if-changed=build.zig");
-    // 监控整个存放 Zig 和 C++ 源码的目录 (假设都在 src 目录下)
-    println!("cargo:rerun-if-changed=src");
-    let mut zig_args = vec![
-        "build",
-        if env::var("PROFILE").unwrap_or_default() == "release" {
-            "-Doptimize=ReleaseFast"
-        } else {
-            "-Doptimize=ReleaseFast"
-        },
-    ];
-    // 只有在 macOS 下，才强制指定 aarch64-macos
-    #[cfg(target_os = "macos")]
-    zig_args.push("-Dtarget=aarch64-macos.26.4");
-
-    #[cfg(target_os = "windows")]
-    zig_args.push("-Dtarget=x86_64-windows-gnu");
-    // 运行 Zig 编译
-    let status = Command::new("zig")
-        .args(&zig_args)
-        .status()
-        .expect("Failed to execute zig build.");
-    assert!(status.success(), "Zig build failed!");
-
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let lib_dir = PathBuf::from(&manifest_dir).join("zig-out/lib");
-
+    for path in [
+        "src/api.zig",
+        "src/jolt_softbody.cpp",
+        "build.zig",
+        "build.zig.zon",
+        "deps/zphysics",
+    ] {
+        println!("cargo:rerun-if-changed={path}");
+    }
+    assert_eq!(
+        env::var("HOST").unwrap(),
+        env::var("TARGET").unwrap(),
+        "The native Jolt build currently requires a host build"
+    );
+    let mut zig = Command::new("zig");
+    zig.args(["build", "-Doptimize=ReleaseSafe"]);
+    let os = env::var("CARGO_CFG_TARGET_OS").unwrap();
+    if os == "macos" {
+        println!("cargo:rerun-if-env-changed=MACOSX_DEPLOYMENT_TARGET");
+        let deployment = env::var("MACOSX_DEPLOYMENT_TARGET").unwrap_or_else(|_| "11.0".into());
+        let arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+        zig.arg(format!("-Dtarget={arch}-macos.{deployment}"));
+    }
+    let status = zig.status().expect("Install Zig 0.16 to compile Jolt");
+    assert!(status.success(), "Zig build failed");
+    let lib_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("zig-out/lib");
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
-
-    #[cfg(target_os = "macos")]
-    {
-        // 3. 🍎 使用 libtool 将两个库熔炼，并明确告诉 Rust 链接目标版本
-        let combined_path = lib_dir.join("libcombined_physics.a");
-        let zig_lib = lib_dir.join("libzig_physics.a");
-        let jolt_lib = lib_dir.join("libjoltc.a");
-
-        let _ = Command::new("libtool")
-            .args([
-                "-static",
-                "-o",
-                combined_path.to_str().unwrap(),
-                zig_lib.to_str().unwrap(),
-                jolt_lib.to_str().unwrap(),
-            ])
-            .status();
-
-        //println!("cargo:rustc-link-lib=static=combined_physics");
-        // 强制要求 Rust 链接器也使用 26.4 版本协议
-        println!("cargo:rustc-link-arg=-mmacosx-version-min=26.4");
-        println!("cargo:rustc-link-lib=c++");
-        println!("cargo:rustc-link-lib=framework=CoreFoundation");
-        println!("cargo:rustc-link-search=native=zig-out/lib");
+    if os == "macos" {
+        // Extract first: Apple's libtool skips some members in unaligned Zig archives.
+        let unpacked = PathBuf::from(env::var("OUT_DIR").unwrap()).join("native-objects");
+        std::fs::create_dir_all(&unpacked).expect("Cannot create native object directory");
+        let mut objects = Vec::new();
+        for library in ["zig_physics", "joltc"] {
+            let directory = unpacked.join(library);
+            if directory.exists() {
+                std::fs::remove_dir_all(&directory).expect("Cannot clear stale objects");
+            }
+            std::fs::create_dir_all(&directory).unwrap();
+            let status = Command::new("/usr/bin/ar")
+                .arg("-x")
+                .arg(lib_dir.join(format!("lib{library}.a")))
+                .current_dir(&directory)
+                .status()
+                .expect("Cannot extract native archive");
+            assert!(status.success(), "Cannot extract {library}");
+            for entry in std::fs::read_dir(&directory).unwrap() {
+                let path = entry.unwrap().path();
+                if path.extension().is_some_and(|e| e == "o") {
+                    // Zig emits archive members with mode 000; ar preserves that mode.
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+                        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644))
+                            .expect("Cannot make extracted object readable");
+                    }
+                    objects.push(path);
+                }
+            }
+        }
+        objects.sort();
+        let status = Command::new("/usr/bin/libtool")
+            .args(["-static", "-no_warning_for_no_symbols", "-o"])
+            .arg(lib_dir.join("libmmd_physics.a"))
+            .args(objects)
+            .status()
+            .expect("Apple command line tools are required");
+        assert!(status.success(), "Cannot repack native archives");
+        println!("cargo:rustc-link-lib=static=mmd_physics");
+        println!("cargo:rustc-link-arg=-Wl,-no_warn_duplicate_libraries");
+    } else {
         println!("cargo:rustc-link-lib=static=zig_physics");
         println!("cargo:rustc-link-lib=static=joltc");
-        println!("cargo:rustc-link-search=native={}", lib_dir.display());
     }
-    // // 👇 添加下面这两行：强制 Windows 下的 Zig 使用 GNU ABI 绕开 MSVC 对齐 Bug
-    // #[cfg(target_os = "windows")]
-    // {
-    //     // Windows 下使用的 target 工具链而定 (MSVC 或 GNU)
-    //     // 如果是 gnu (mingw)，通常需要 stdc++
-    //     let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap();
-    //     if target_env == "gnu" {
-    //         println!("cargo:rustc-link-lib=stdc++");
-    //     }
-    //     // MSVC 环境通常会自动链接 C++ 运行时，但有时需要显式处理
-    // }
-    #[cfg(target_os = "linux")]
-    {
-        // 告诉 Rust 静态链接你的两个库
-        println!("cargo:rustc-link-search=native=zig-out/lib");
-        println!("cargo:rustc-link-lib=static=zig_physics");
-        println!("cargo:rustc-link-lib=static=joltc");
-        // 明确指定链接 LLVM 的 c++ 库，而不是 GNU 的 stdc++
-        println!("cargo:rustc-link-lib=c++");
-        // 保险起见，把 c++ 的 ABI 库也一起链上，防止底层线程函数丢失
-        println!("cargo:rustc-link-lib=c++abi");
-        //let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
-    }
-    Command::new("ranlib")
-        .arg(lib_dir.join("libjoltc.a"))
-        .status()
-        .ok();
-    Command::new("ranlib")
-        .arg(lib_dir.join("libzig_physics.a"))
-        .status()
-        .ok();
+    println!("cargo:rustc-link-lib=c++");
 }

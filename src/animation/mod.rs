@@ -1,25 +1,25 @@
 use bevy::prelude::*;
-use std::ffi::c_void;
 
 use PMXUtil::types::{Bone, Face, Material, VertexWeight};
 
 use crate::components::{
-    HairPhysicsData, IkConstraint, IkLinkData, PmxBoneData, PmxSharedSkin, PmxSkeleton,
-    SubMeshInfo, VmdPlayback,
+    CpuDeformed, HairPhysicsData, IkConstraint, IkLinkData, PmxBone, PmxBoneData, PmxSharedSkin,
+    PmxSkeleton, SubMeshInfo, VmdPlayback,
 };
 use crate::physics::{
     get_soft_body_vertices, step_physics, update_soft_body_roots, PHYSICS_SYSTEM_PTR,
 };
 
-/// Per-frame animation pipeline: advance playback → sample VMD → FK → IK → build skin matrices → CPU skin.
-/// Skinning is performed exactly once; `apply_skin_to_meshes` then copies the shared result to each sub-mesh.
+/// Per-frame animation pipeline: advance playback, sample VMD, solve FK/IK, and update GPU joints.
+/// CPU skinning is limited to vertices consumed by the native soft-body bridge.
 pub fn skin_update_system(
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     mut playback: Option<ResMut<VmdPlayback>>,
     skeleton: Option<Res<PmxSkeleton>>,
     mut shared_skin: Option<ResMut<PmxSharedSkin>>,
     hair_data: Option<ResMut<HairPhysicsData>>,
     cfg: Res<crate::config::Config>,
+    mut bone_query: Query<(&PmxBone, &mut Transform)>,
 ) {
     let (Some(pb), Some(skel), Some(skin)) =
         (playback.as_mut(), skeleton.as_ref(), shared_skin.as_mut())
@@ -27,11 +27,8 @@ pub fn skin_update_system(
         return;
     };
 
-    if pb.clip.duration_frames == 0 {
-        return;
-    }
-
     // Advance playback time.
+    let previous_time = pb.time_sec;
     pb.time_sec += time.delta_secs();
     let duration_sec = pb.clip.duration_frames as f32 / pb.fps;
     if duration_sec > 0.0 {
@@ -39,8 +36,14 @@ pub fn skin_update_system(
     }
     let t = pb.time_sec;
     let fps = pb.fps;
-    println!("Current VMD Frame: {}", (t * fps) as u32);
     let n = skel.bones.len();
+    let physics_indices = hair_data.as_ref().map(|hair| {
+        hair.sb_to_pmx_map
+            .iter()
+            .flatten()
+            .copied()
+            .collect::<std::collections::HashSet<_>>()
+    });
 
     // Sample VMD local transforms.
     // VMD stores each bone's delta from its rest pose:
@@ -68,11 +71,7 @@ pub fn skin_update_system(
     let mut world_pos = vec![Vec3::ZERO; n];
     let mut world_rot = vec![Quat::IDENTITY; n];
 
-    // Sort by deform_depth ascending to guarantee parent-before-child evaluation.
-    let mut order: Vec<usize> = (0..n).collect();
-    order.sort_by_key(|&i| skel.bones[i].deform_depth);
-
-    for &i in &order {
+    for &i in &skel.order {
         let bone = &skel.bones[i];
         let p = bone.parent;
 
@@ -165,6 +164,7 @@ pub fn skin_update_system(
                 // Propagate rotation change to all descendants.
                 propagate(
                     &skel.bones,
+                    &skel.order,
                     li,
                     &local_t,
                     &local_r,
@@ -175,124 +175,178 @@ pub fn skin_update_system(
         }
     }
 
-    // Build skin matrices: M_skin[i] = T(world_pos[i]) * R(world_rot[i]) * T(-rest_pos[i])
-    // Applied to a vertex v: animated = M_skin * v_rest = R*(v_rest - rest_pos) + world_pos
-    let skin_mats: Vec<Mat4> = (0..n)
-        .map(|i| {
-            Mat4::from_rotation_translation(world_rot[i], world_pos[i])
-                * Mat4::from_translation(-skel.bones[i].rest_position)
-        })
-        .collect();
+    // Keep animated positions only for soft-body vertices. Rigid meshes use Bevy's WGSL skinning.
+    let mut animated_positions = std::collections::HashMap::<usize, Vec3>::new();
+    if let Some(indices) = physics_indices.as_ref() {
+        // Build skin matrices only when the native soft-body bridge needs CPU targets.
+        let skin_mats: Vec<Mat4> = (0..n)
+            .map(|i| {
+                Mat4::from_rotation_translation(world_rot[i], world_pos[i])
+                    * Mat4::from_translation(-skel.bones[i].rest_position)
+            })
+            .collect();
 
-    // CPU skin pass — executed once per frame; results are shared across all sub-meshes.
-    let vcount_skin = skin.vertices.len();
-    let mut new_pos = vec![[0.0f32; 3]; vcount_skin];
-    let mut new_nor = vec![[0.0f32; 3]; vcount_skin];
-
-    // Apply vertex morphs.
-    let mut morphed_positions: Vec<Vec3> = skin.vertices.iter().map(|v| v.rest_position).collect();
-    for morph in &skel.morphs {
-        if let Some(weight) = pb.clip.sample_morph_at_seconds(&morph.name, t, fps) {
-            if weight.abs() > 1e-4 {
-                for vm in &morph.offsets {
-                    if vm.index < vcount_skin {
-                        morphed_positions[vm.index] += vm.offset * weight;
+        // Apply morphs only to the subset consumed by soft-body physics.
+        let mut morphed_positions =
+            std::collections::HashMap::<usize, Vec3>::with_capacity(indices.len());
+        for &vi in indices {
+            if let Some(vertex) = skin.vertices.get(vi) {
+                morphed_positions.insert(vi, vertex.rest_position);
+            }
+        }
+        for morph in &skel.morphs {
+            if let Some(weight) = pb.clip.sample_morph_at_seconds(&morph.name, t, fps) {
+                if weight.abs() > 1e-4 {
+                    for vm in &morph.offsets {
+                        if let Some(position) = morphed_positions.get_mut(&vm.index) {
+                            *position += vm.offset * weight;
+                        }
                     }
                 }
             }
         }
-    }
 
-    for (vi, sv) in skin.vertices.iter().enumerate() {
-        let mut pos = Vec3::ZERO;
-        let mut nor = Vec3::ZERO;
-        let mut wsum = 0.0f32;
+        animated_positions.reserve(indices.len());
+        for &vi in indices {
+            let Some(sv) = skin.vertices.get(vi) else {
+                continue;
+            };
+            let rest_position = sv.rest_position;
+            let morphed_position = morphed_positions.get(&vi).copied().unwrap_or(rest_position);
+            let mut pos = Vec3::ZERO;
+            let mut nor = Vec3::ZERO;
+            let mut wsum = 0.0f32;
 
-        for k in 0..4 {
-            let bidx = sv.bone_indices[k];
-            let bw = sv.bone_weights[k];
-            if bidx < 0 || bw <= 0.0 {
-                continue;
+            for k in 0..4 {
+                let bidx = sv.bone_indices[k];
+                let bw = sv.bone_weights[k];
+                if bidx < 0 || bw <= 0.0 {
+                    continue;
+                }
+                let bidx = bidx as usize;
+                if bidx >= n {
+                    continue;
+                }
+                let m = skin_mats[bidx];
+                pos += m.transform_point3(morphed_position) * bw;
+                nor += m.transform_vector3(sv.rest_normal) * bw;
+                wsum += bw;
             }
-            let bidx = bidx as usize;
-            if bidx >= n {
-                continue;
+            if wsum > 0.0 && (wsum - 1.0).abs() > 1e-4 {
+                pos /= wsum;
+                nor /= wsum;
             }
-            let m = skin_mats[bidx];
-            // transform_point3 includes translation (use for positions)
-            // transform_vector3 excludes translation (use for normals)
-            pos += m.transform_point3(morphed_positions[vi]) * bw;
-            nor += m.transform_vector3(sv.rest_normal) * bw;
-            wsum += bw;
+            if wsum <= 0.0 {
+                pos = morphed_position;
+                nor = sv.rest_normal;
+            }
+            animated_positions.insert(vi, pos);
+            skin.skinned_positions[vi] = pos.to_array();
+            skin.skinned_normals[vi] = nor.normalize_or_zero().to_array();
         }
-        // BDEF4 weights may not sum to exactly 1.0; normalize to correct.
-        if wsum > 0.0 && (wsum - 1.0).abs() > 1e-4 {
-            pos /= wsum;
-            nor /= wsum;
-        }
-        new_pos[vi] = pos.to_array();
-        new_nor[vi] = nor.normalize_or_zero().to_array();
     }
-    skin.skinned_positions = new_pos.clone();
-    skin.skinned_normals = new_nor;
+    for (bone, mut transform) in &mut bone_query {
+        if bone.index < n {
+            transform.translation = world_pos[bone.index];
+            transform.rotation = world_rot[bone.index];
+            transform.scale = Vec3::ONE;
+        }
+    }
     if let Some(mut hair) = hair_data {
-        let is_first = if !hair.is_initialized { 1 } else { 0 };
+        let is_first = if !hair.is_initialized || pb.time_sec < previous_time {
+            1
+        } else {
+            0
+        };
 
-    // Each frame, feed the full set of target skinned positions to the physics engine.
-    let num_sb_verts = hair.representative_pmx_indices.len();
-    let mut all_positions = Vec::with_capacity(num_sb_verts * 3);
-    let mut all_sb_indices = Vec::with_capacity(num_sb_verts);
+        // Each frame, feed the full set of target skinned positions to the physics engine.
+        let num_sb_verts = hair.representative_pmx_indices.len();
+        let mut all_positions = Vec::with_capacity(num_sb_verts * 3);
+        let mut all_sb_indices = Vec::with_capacity(num_sb_verts);
 
-    for (sb_idx, &pmx_idx) in hair.representative_pmx_indices.iter().enumerate() {
-        let pos = new_pos[pmx_idx];
-        all_positions.push(pos[0]);
-        all_positions.push(pos[1]);
-        all_positions.push(pos[2]);
-        all_sb_indices.push(sb_idx as i32);
-    }
+        for (sb_idx, &pmx_idx) in hair.representative_pmx_indices.iter().enumerate() {
+            let pos = animated_positions
+                .get(&pmx_idx)
+                .copied()
+                .unwrap_or(skin.vertices[pmx_idx].rest_position);
+            all_positions.extend_from_slice(&pos.to_array());
+            all_sb_indices.push(sb_idx as i32);
+        }
 
-    unsafe {
-        let physics_system =
-            PHYSICS_SYSTEM_PTR.load(std::sync::atomic::Ordering::SeqCst) as *mut c_void;
-        update_soft_body_roots(
-            physics_system,
-            hair.ptr,
-            all_positions.as_ptr(),
-            all_sb_indices.as_ptr(),
-            all_sb_indices.len() as i32,
-            is_first, // 1 = teleport vertices, 0 = apply pull force
-            time.delta_secs(),
-            cfg.softbody.position_pull,
-            cfg.softbody.velocity_pull,
-            cfg.softbody.damping,
-            cfg.softbody.max_speed,
-        );
+        unsafe {
+            let physics_system = PHYSICS_SYSTEM_PTR.load(std::sync::atomic::Ordering::SeqCst);
+            update_soft_body_roots(
+                physics_system,
+                hair.ptr,
+                all_positions.as_ptr(),
+                all_sb_indices.as_ptr(),
+                all_sb_indices.len() as i32,
+                is_first, // 1 = teleport vertices, 0 = apply pull force
+                time.delta_secs(),
+                cfg.softbody.position_pull,
+                cfg.softbody.velocity_pull,
+                cfg.softbody.damping,
+                cfg.softbody.max_speed,
+            );
 
-        step_physics(time.delta_secs().min(0.033));
+            step_physics(time.delta_secs());
+            let mut capsules = Vec::with_capacity(skel.colliders.len() * 11);
+            for collider in &skel.colliders {
+                let rotation = world_rot[collider.bone];
+                let center = world_pos[collider.bone] + rotation * collider.offset;
+                capsules.extend_from_slice(&center.to_array());
+                capsules.extend_from_slice(&(rotation * collider.rotation).to_array());
+                let mut size = collider.size;
+                if collider.kind == 1.0 {
+                    size += Vec3::splat(cfg.softbody.collision_margin);
+                } else {
+                    size.x += cfg.softbody.collision_margin;
+                }
+                capsules.extend_from_slice(&size.to_array());
+                capsules.push(collider.kind);
+            }
+            crate::physics::constrain_soft_body(
+                physics_system,
+                hair.ptr,
+                capsules.as_ptr(),
+                (capsules.len() / 11) as i32,
+                all_positions.as_ptr(),
+                cfg.softbody.max_distance,
+            );
 
-        // Read back physics-computed positions and overwrite the skinned result.
-        let mut current_vertices = vec![0.0f32; num_sb_verts * 3];
-        get_soft_body_vertices(
-            physics_system,
-            hair.ptr,
-            current_vertices.as_mut_ptr(),
-            num_sb_verts as i32,
-        );
+            // Read back physics-computed positions and overwrite the skinned result.
+            let mut current_vertices = vec![0.0f32; num_sb_verts * 3];
+            get_soft_body_vertices(
+                physics_system,
+                hair.ptr,
+                current_vertices.as_mut_ptr(),
+                num_sb_verts as i32,
+            );
 
-        for sb_idx in 0..num_sb_verts {
-            let px = current_vertices[sb_idx * 3];
-            let py = current_vertices[sb_idx * 3 + 1];
-            let pz = current_vertices[sb_idx * 3 + 2];
+            for sb_idx in 0..num_sb_verts {
+                let px = current_vertices[sb_idx * 3];
+                let py = current_vertices[sb_idx * 3 + 1];
+                let pz = current_vertices[sb_idx * 3 + 2];
 
-            for &(pmx_idx, offset) in &hair.sb_to_pmx_map[sb_idx] {
-                if pmx_idx < skin.skinned_positions.len() {
-                    // Overwrite skinned position with physics result, adding the
-                    // per-vertex offset to preserve cloth thickness at seams.
-                    skin.skinned_positions[pmx_idx] = [px + offset.x, py + offset.y, pz + offset.z];
+                for &pmx_idx in &hair.sb_to_pmx_map[sb_idx] {
+                    if pmx_idx < skin.skinned_positions.len() {
+                        // Overwrite skinned position with physics result, adding the
+                        // per-vertex offset to preserve cloth thickness at seams.
+                        let representative = hair.representative_pmx_indices[sb_idx];
+                        let animated_offset = animated_positions
+                            .get(&pmx_idx)
+                            .copied()
+                            .unwrap_or(skin.vertices[pmx_idx].rest_position)
+                            - animated_positions
+                                .get(&representative)
+                                .copied()
+                                .unwrap_or(skin.vertices[representative].rest_position);
+                        skin.skinned_positions[pmx_idx] =
+                            (Vec3::new(px, py, pz) + animated_offset).to_array();
+                    }
                 }
             }
         }
-    }
         hair.is_initialized = true;
     }
 }
@@ -303,7 +357,7 @@ pub fn skin_update_system(
 /// per-mesh memcpy rather than a second skinning pass — roughly 50× faster.
 pub fn apply_skin_to_meshes(
     shared_skin: Option<Res<PmxSharedSkin>>,
-    mesh_query: Query<(&SubMeshInfo, &Mesh3d)>,
+    mesh_query: Query<(&SubMeshInfo, &Mesh3d), With<CpuDeformed>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
 ) {
     let Some(skin) = shared_skin.as_ref() else {
@@ -369,18 +423,17 @@ pub fn build_ik_constraints(bones: &[Bone]) -> Vec<IkConstraint> {
 /// Propagates a bone rotation change to all descendants.
 fn propagate(
     bones: &[PmxBoneData],
+    order: &[usize],
     changed: usize,
     local_t: &[Vec3],
     local_r: &[Quat],
-    world_pos: &mut Vec<Vec3>,
-    world_rot: &mut Vec<Quat>,
+    world_pos: &mut [Vec3],
+    world_rot: &mut [Quat],
 ) {
     let n = bones.len();
     let mut dirty = vec![false; n];
     dirty[changed] = true;
-    // PMX bone parent indices are usually less than child indices,
-    // so a forward pass propagates correctly in most cases.
-    for i in 0..n {
+    for &i in order {
         let p = bones[i].parent;
         if p < 0 {
             continue;
@@ -510,49 +563,6 @@ pub fn convert_vertex_weight(w: &VertexWeight) -> ([i32; 4], [f32; 4]) {
             bone_weight_3: w3,
             bone_weight_4: w4,
         } => ([*b1, *b2, *b3, *b4], [*w1, *w2, *w3, *w4]),
-    }
-}
-
-pub fn format_vertex_weight(w: &VertexWeight) -> String {
-    match w {
-        VertexWeight::BDEF1(b) => format!("BDEF1(b={})", b),
-        VertexWeight::BDEF2 {
-            bone_index_1: b1,
-            bone_index_2: b2,
-            bone_weight_1: w1,
-        } => format!("BDEF2(b{}×{:.3}+b{}×{:.3})", b1, w1, b2, 1.0 - w1),
-        VertexWeight::BDEF4 {
-            bone_index_1: b1,
-            bone_index_2: b2,
-            bone_index_3: b3,
-            bone_index_4: b4,
-            bone_weight_1: w1,
-            bone_weight_2: w2,
-            bone_weight_3: w3,
-            bone_weight_4: w4,
-        } => format!(
-            "BDEF4(b{}×{:.2} b{}×{:.2} b{}×{:.2} b{}×{:.2})",
-            b1, w1, b2, w2, b3, w3, b4, w4
-        ),
-        VertexWeight::SDEF {
-            bone_index_1: b1,
-            bone_index_2: b2,
-            bone_weight_1: w1,
-            ..
-        } => format!("SDEF(b{}×{:.3}+b{}×{:.3})", b1, w1, b2, 1.0 - w1),
-        VertexWeight::QDEF {
-            bone_index_1: b1,
-            bone_index_2: b2,
-            bone_index_3: b3,
-            bone_index_4: b4,
-            bone_weight_1: w1,
-            bone_weight_2: w2,
-            bone_weight_3: w3,
-            bone_weight_4: w4,
-        } => format!(
-            "QDEF(b{}×{:.2} b{}×{:.2} b{}×{:.2} b{}×{:.2})",
-            b1, w1, b2, w2, b3, w3, b4, w4
-        ),
     }
 }
 

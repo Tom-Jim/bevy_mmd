@@ -12,7 +12,7 @@ struct PmxUniform {
     ambient: vec4<f32>,
     edge_color: vec4<f32>,
     // x: sphere mode (0 none / 1 mul / 2 add)
-    // y: disable culling flag (预留，当前在 CPU 侧处理)
+    // y: reserved; culling is handled on the mesh side
     // z: edge flag
     // w: toon flag
     flags: vec4<u32>,
@@ -46,7 +46,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         color = vec4<f32>(color.rgb * toon.rgb, color.a);
     }
 
-    // edge (轻量近似：rim tint)
+    // Edge lighting uses a lightweight rim-tint approximation.
     if (pmx.flags.z == 1u) {
         let n = normalize(in.world_normal);
         let v = vec3<f32>(0.0, 0.0, 1.0);

@@ -1,0 +1,36 @@
+# Global project configuration (TOML)
+
+[paths]
+# PMX path relative to assets/, or an absolute path.
+pmx = "模型/星穹铁道—知更鸟·晴歌_by_崩坏：星穹铁道_7add4ed08c748c72b54fc18b0918572f/星穹铁道—知更鸟·晴歌.pmx"
+vmd = "VMD/贝洛伯格第三节.vmd"
+
+[softbody]
+# Soft-body shape matching parameters.
+# Position pull at a 60 Hz reference rate; converted for each time step.
+position_pull = 0.2
+# Velocity pull coefficient.
+velocity_pull = 6.0
+# Velocity retention at a 60 Hz reference rate; converted for each time step.
+damping = 0.95
+# Maximum speed in model units per second.
+max_speed = 18.0
+# Constraint compliance; lower values are stiffer.
+stretch_compliance = 0.000001
+shear_compliance = 0.0
+bend_compliance = 0.008
+# Jolt solver iterations.
+iterations = 80
+# Gravity multiplier; 1.0 is standard gravity.
+gravity_factor = 1.0
+collision_margin = 0.03
+max_distance = 0.8
+
+[render]
+# Global material emissive strength.
+global_emissive_strength = 0.5
+# Scene lighting parameters.
+point_light_intensity = 2000000.0
+point_light_range = 500.0
+ambient_brightness = 200.0
+directional_illuminance = 10000.0

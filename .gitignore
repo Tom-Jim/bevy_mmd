@@ -1,0 +1,11 @@
+/target
+.ropeproject
+**/*.rs.bk
+.DS_Store
+/zig-out
+.zig-cache
+/assets/VMD
+/assets/MMD
+/assets/模型
+/assets/records/*.png
+/assets/文档

@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*' # 当你推送以 v 开头的标签（如 v0.1.0）时触发
+      - 'v*' # Run when a tag beginning with v is pushed, such as v0.1.0.
 
 jobs:
   publish:
@@ -32,7 +32,7 @@ jobs:
       - name: Install Zig
         uses: mlugg/setup-zig@v1
         with:
-          version: master
+          version: 0.16.0
 
       - name: Install Linux Dependencies
         if: runner.os == 'Linux'
@@ -40,17 +40,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y g++ pkg-config libx11-dev libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
 
-      # 核心编译步骤（记得带上 --release）
+      # Build the optimized release binary.
       - name: Build
-        run: cargo build --release
+        run: cargo build --release --locked
 
-      # 打包：把二进制文件和 assets 文件夹放一起
+      # Package the binary together with the assets directory.
       - name: Package Artifacts (Windows)
         if: runner.os == 'Windows'
         run: |
           mkdir staging
           cp target/release/bevy3Danimation.exe staging/bevy_mmd.exe
           cp -r assets staging/
+          cp config.toml staging/
           Compress-Archive -Path staging/* -DestinationPath ${{ matrix.asset_name }}
 
       - name: Package Artifacts (Linux/macOS)
@@ -59,9 +60,10 @@ jobs:
           mkdir staging
           cp target/release/bevy3Danimation staging/${{ matrix.artifact_name }}
           cp -r assets staging/
+          cp config.toml staging/
           tar -czf ${{ matrix.asset_name }} -C staging .
 
-      # 上传到 GitHub Release
+      # Upload the package to the GitHub release.
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v1
         with:

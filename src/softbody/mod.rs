@@ -1,91 +1,19 @@
 use bevy::prelude::*;
-use std::ffi::c_void;
 
-use PMXUtil::types::{Bone, Face, Material, Vertex};
+use PMXUtil::types::{Bone, Material, Vertex};
 
-use crate::components::{HairPhysicsData, JoltSoftBody};
-use crate::physics::{create_soft_body_from_mesh, PHYSICS_SYSTEM_PTR};
-
-/// Spawns a simple hanging flag soft-body for demonstration purposes.
-pub fn spawn_flag_softbody(commands: &mut Commands) {
-    let grid_size = 15;
-    let width = 10.0;
-    let height = 10.0;
-    let offset = Vec3::new(10.0, 15.0, 0.0);
-
-    let mut flag_vertices = Vec::with_capacity(grid_size * grid_size * 3);
-    let mut flag_inv_masses = Vec::with_capacity(grid_size * grid_size);
-    let mut flag_indices = Vec::new();
-
-    // Build vertex grid and inverse masses.
-    for y in 0..grid_size {
-        for x in 0..grid_size {
-            let px = (x as f32 / (grid_size - 1) as f32) * width;
-            let py = (y as f32 / (grid_size - 1) as f32) * height;
-
-            flag_vertices.push(offset.x + px);
-            flag_vertices.push(offset.y);
-            flag_vertices.push(offset.z + py);
-
-            // Top row pinned
-            if y == 0 {
-                flag_inv_masses.push(0.0);
-            } else {
-                flag_inv_masses.push(1.0);
-            }
-        }
-    }
-
-    // Build triangle index buffer.
-    for y in 0..(grid_size - 1) {
-        for x in 0..(grid_size - 1) {
-            let top_left = (y * grid_size + x) as u32;
-            let top_right = top_left + 1;
-            let bottom_left = ((y + 1) * grid_size + x) as u32;
-            let bottom_right = bottom_left + 1;
-
-            flag_indices.push(top_left);
-            flag_indices.push(bottom_left);
-            flag_indices.push(top_right);
-
-            flag_indices.push(top_right);
-            flag_indices.push(bottom_left);
-            flag_indices.push(bottom_right);
-        }
-    }
-
-    unsafe {
-        let physics_system =
-            PHYSICS_SYSTEM_PTR.load(std::sync::atomic::Ordering::SeqCst) as *mut c_void;
-        let flag_ptr = create_soft_body_from_mesh(
-            flag_vertices.as_ptr(),
-            (flag_vertices.len() / 3) as i32,
-            flag_indices.as_ptr() as *const i32,
-            flag_indices.len() as i32,
-            flag_inv_masses.as_ptr(),
-            physics_system,
-        );
-
-        if !flag_ptr.is_null() {
-            commands.spawn((JoltSoftBody {
-                ptr: flag_ptr,
-                num_vertices: flag_vertices.len() / 3,
-                indices: flag_indices,
-            },));
-            info!("spawned flag softbody");
-        }
-    }
-}
+use crate::components::HairPhysicsData;
+use crate::physics::PHYSICS_SYSTEM_PTR;
 
 /// Builds a physics soft-body mesh from PMX hair/cloth materials and registers it in the ECS.
-/// On success, inserts `HairPhysicsData` resource and spawns a `JoltSoftBody` entity.
+/// On success, inserts the owned soft-body handle and vertex mapping.
 pub fn spawn_hair_from_pmx(
     commands: &mut Commands,
-    vertices: &Vec<Vertex>,
-    _faces: &Vec<Face>,
-    materials_pmx: &Vec<Material>,
-    face_groups: &Vec<(usize, Vec<u32>)>,
-    bones: &Vec<Bone>,
+    vertices: &[Vertex],
+    materials_pmx: &[Material],
+    face_groups: &[(usize, Vec<u32>)],
+    bones: &[Bone],
+    cfg: &crate::config::SoftBodyConfig,
 ) {
     // All soft-body and accessory keywords, including lining and name-tag meshes.
     let soft_keywords = [
@@ -151,10 +79,10 @@ pub fn spawn_hair_from_pmx(
     for (i, mat) in materials_pmx.iter().enumerate() {
         if accessory_keywords.iter().any(|&k| mat.name.contains(k)) {
             acc_mat_indices.push(i);
-        } else if soft_keywords.iter().any(|&k| mat.name.contains(k)) {
-            if !exclude_keywords.iter().any(|&k| mat.name.contains(k)) {
-                main_mat_indices.push(i);
-            }
+        } else if soft_keywords.iter().any(|&k| mat.name.contains(k))
+            && !exclude_keywords.iter().any(|&k| mat.name.contains(k))
+        {
+            main_mat_indices.push(i);
         }
     }
 
@@ -213,7 +141,7 @@ pub fn spawn_hair_from_pmx(
         }
         let mut current_parent = b.parent;
         let mut depth = 1;
-        while current_parent >= 0 && depth <= 1 {
+        while current_parent >= 0 && (current_parent as usize) < bones.len() && depth <= 1 {
             if is_core[current_parent as usize] {
                 is_anchor[i] = true;
                 break;
@@ -235,10 +163,9 @@ pub fn spawn_hair_from_pmx(
     let mut sb_inv_masses: Vec<f32> = Vec::new();
     let mut sb_indices: Vec<u32> = Vec::new();
     let mut pmx_to_sb_map = std::collections::HashMap::new();
-    let mut root_sb_indices = Vec::new();
     let mut root_pmx_indices = Vec::new();
     let mut representative_pmx_indices = Vec::new();
-    let mut sb_to_pmx_map: Vec<Vec<(usize, Vec3)>> = Vec::new();
+    let mut sb_to_pmx_map: Vec<Vec<usize>> = Vec::new();
     let mut pos_to_sb = std::collections::HashMap::new();
 
     let mut main_pmx_indices = std::collections::BTreeSet::new();
@@ -257,7 +184,7 @@ pub fn spawn_hair_from_pmx(
 
     for &pmx_idx in &main_pmx_indices {
         let v = &vertices[pmx_idx as usize];
-        let mat_idx = vertex_to_mat.get(&(pmx_idx as u32)).copied().unwrap_or(0);
+        let mat_idx = vertex_to_mat.get(&pmx_idx).copied().unwrap_or(0);
         let is_hair = is_hair_mat.get(&mat_idx).copied().unwrap_or(false);
 
         let qx = (v.position[0] * 100000.0).round() as i32;
@@ -276,28 +203,23 @@ pub fn spawn_hair_from_pmx(
         let (bi, bw) = crate::animation::convert_vertex_weight(&v.weight_type);
         let mut is_anchored = false;
         for k in 0..4 {
-            if bi[k] >= 0 && (bi[k] as usize) < is_anchor.len() && is_anchor[bi[k] as usize] {
-                if bw[k] > 0.3 {
-                    is_anchored = true;
-                    break;
-                }
+            if bi[k] >= 0
+                && (bi[k] as usize) < is_anchor.len()
+                && is_anchor[bi[k] as usize]
+                && bw[k] > 0.3
+            {
+                is_anchored = true;
+                break;
             }
         }
 
         if let Some(&sb_idx) = pos_to_sb.get(&q_pos) {
             pmx_to_sb_map.insert(pmx_idx, sb_idx);
 
-            // 计算相对偏移
-            let sx = sb_vertices[sb_idx as usize * 3];
-            let sy = sb_vertices[sb_idx as usize * 3 + 1];
-            let sz = sb_vertices[sb_idx as usize * 3 + 2];
-            let offset = Vec3::new(v.position[0] - sx, v.position[1] - sy, -v.position[2] - sz);
-
-            sb_to_pmx_map[sb_idx as usize].push((pmx_idx as usize, offset));
+            sb_to_pmx_map[sb_idx as usize].push(pmx_idx as usize);
 
             if is_anchored && sb_inv_masses[sb_idx as usize] != 0.0 {
                 sb_inv_masses[sb_idx as usize] = 0.0;
-                root_sb_indices.push(sb_idx as i32);
                 root_pmx_indices.push(pmx_idx as usize);
             }
         } else {
@@ -306,7 +228,7 @@ pub fn spawn_hair_from_pmx(
             pmx_to_sb_map.insert(pmx_idx, current_sb_idx);
 
             representative_pmx_indices.push(pmx_idx as usize);
-            sb_to_pmx_map.push(vec![(pmx_idx as usize, Vec3::ZERO)]);
+            sb_to_pmx_map.push(vec![pmx_idx as usize]);
 
             sb_vertices.push(v.position[0]);
             sb_vertices.push(v.position[1]);
@@ -314,7 +236,6 @@ pub fn spawn_hair_from_pmx(
 
             if is_anchored {
                 sb_inv_masses.push(0.0);
-                root_sb_indices.push(current_sb_idx as i32);
                 root_pmx_indices.push(pmx_idx as usize);
             } else {
                 sb_inv_masses.push(1.0);
@@ -323,7 +244,7 @@ pub fn spawn_hair_from_pmx(
     }
 
     for &mat_idx in &main_mat_indices {
-        for chunk in face_groups[mat_idx].1.chunks_exact(3) {
+        for chunk in face_groups[mat_idx].1.as_chunks::<3>().0 {
             if let (Some(&v0), Some(&v1), Some(&v2)) = (
                 pmx_to_sb_map.get(&chunk[0]),
                 pmx_to_sb_map.get(&chunk[1]),
@@ -354,19 +275,19 @@ pub fn spawn_hair_from_pmx(
         let vx = v.position[0];
         let vy = v.position[1];
         let vz = -v.position[2];
-        let mat_idx = vertex_to_mat.get(&(pmx_idx as u32)).copied().unwrap_or(0);
+        let mat_idx = vertex_to_mat.get(&pmx_idx).copied().unwrap_or(0);
         let mat_name = &materials_pmx[mat_idx].name;
         let is_acc_hair = acc_hair_keywords.iter().any(|&k| mat_name.contains(k));
 
-    // Find the nearest main soft-body particle.
-    let mut min_dist_sq = f32::MAX;
+        // Find the nearest main soft-body particle.
+        let mut min_dist_sq = f32::MAX;
         let mut nearest_sb_idx = 0;
 
         // Linear search is acceptable here — this runs only once at startup.
         for i in 0..(sb_vertices.len() / 3) {
             // Match hair accessories to hair particles and cloth accessories to cloth particles;
             // cross-type attachment would cause cloth to pull hair or decorations to teleport.
-            let sb_pmx = sb_to_pmx_map[i][0].0;
+            let sb_pmx = sb_to_pmx_map[i][0];
             let sb_mat_idx = vertex_to_mat.get(&(sb_pmx as u32)).copied().unwrap_or(0);
             let sb_is_hair = is_hair_mat.get(&sb_mat_idx).copied().unwrap_or(false);
 
@@ -384,34 +305,19 @@ pub fn spawn_hair_from_pmx(
             }
         }
 
-        if min_dist_sq == f32::MAX {
-            // Fallback: global search when no same-type particle exists nearby.
-            for i in 0..(sb_vertices.len() / 3) {
-                let sx = sb_vertices[i * 3];
-                let sy = sb_vertices[i * 3 + 1];
-                let sz = sb_vertices[i * 3 + 2];
-                let dist_sq = (vx - sx).powi(2) + (vy - sy).powi(2) + (vz - sz).powi(2);
-                if dist_sq < min_dist_sq {
-                    min_dist_sq = dist_sq;
-                    nearest_sb_idx = i as u32;
-                }
-            }
+        if min_dist_sq == f32::MAX || min_dist_sq > 4.0 {
+            continue;
         }
 
         pmx_to_sb_map.insert(pmx_idx, nearest_sb_idx);
 
-        let sx = sb_vertices[nearest_sb_idx as usize * 3];
-        let sy = sb_vertices[nearest_sb_idx as usize * 3 + 1];
-        let sz = sb_vertices[nearest_sb_idx as usize * 3 + 2];
-        let offset = Vec3::new(vx - sx, vy - sy, vz - sz);
-
-        sb_to_pmx_map[nearest_sb_idx as usize].push((pmx_idx as usize, offset));
+        sb_to_pmx_map[nearest_sb_idx as usize].push(pmx_idx as usize);
     }
 
     // Fix isolated components that lack any anchor vertex.
     let num_sb_verts = sb_vertices.len() / 3;
     let mut adj = vec![Vec::new(); num_sb_verts];
-    for chunk in sb_indices.chunks_exact(3) {
+    for chunk in sb_indices.as_chunks::<3>().0 {
         let (v0, v1, v2) = (chunk[0] as usize, chunk[1] as usize, chunk[2] as usize);
         adj[v0].push(v1);
         adj[v0].push(v2);
@@ -440,14 +346,13 @@ pub fn spawn_hair_from_pmx(
                     }
                 }
             }
-    // Fix isolated connected components that have no anchor: pin small fragments
-    // only (< 300 verts). Pinning a large mesh (thousands of verts) would freeze
-    // the entire cloth into a rigid board, which is wrong.
-    if !has_anchor && comp.len() < 300 {
+            // Fix isolated connected components that have no anchor: pin small fragments
+            // only (< 300 verts). Pinning a large mesh (thousands of verts) would freeze
+            // the entire cloth into a rigid board, which is wrong.
+            if !has_anchor && comp.len() < 300 {
                 for &curr in &comp {
                     sb_inv_masses[curr] = 0.0;
-                    root_sb_indices.push(curr as i32);
-                    root_pmx_indices.push(sb_to_pmx_map[curr][0].0);
+                    root_pmx_indices.push(sb_to_pmx_map[curr][0]);
                 }
             }
         }
@@ -455,8 +360,7 @@ pub fn spawn_hair_from_pmx(
 
     if !sb_vertices.is_empty() && !sb_indices.is_empty() {
         unsafe {
-            let physics_system =
-                PHYSICS_SYSTEM_PTR.load(std::sync::atomic::Ordering::SeqCst) as *mut c_void;
+            let physics_system = PHYSICS_SYSTEM_PTR.load(std::sync::atomic::Ordering::SeqCst);
             let soft_ptr = crate::physics::create_soft_body_from_mesh(
                 sb_vertices.as_ptr(),
                 (sb_vertices.len() / 3) as i32,
@@ -464,15 +368,14 @@ pub fn spawn_hair_from_pmx(
                 sb_indices.len() as i32,
                 sb_inv_masses.as_ptr(),
                 physics_system,
+                cfg.stretch_compliance,
+                cfg.shear_compliance,
+                cfg.bend_compliance,
+                cfg.iterations,
+                cfg.gravity_factor,
             );
 
             if !soft_ptr.is_null() {
-                commands.spawn((JoltSoftBody {
-                    ptr: soft_ptr,
-                    num_vertices: sb_vertices.len() / 3,
-                    indices: sb_indices,
-                },));
-
                 info!(
                     "spawned softbody: main_verts={}, acc_verts={}, physics_verts={}, pinned_roots={}",
                     main_pmx_indices.len(),
@@ -483,8 +386,6 @@ pub fn spawn_hair_from_pmx(
 
                 commands.insert_resource(HairPhysicsData {
                     ptr: soft_ptr,
-                    root_pmx_indices,
-                    root_sb_indices,
                     representative_pmx_indices,
                     sb_to_pmx_map,
                     is_initialized: false,

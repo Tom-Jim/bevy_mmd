@@ -5,32 +5,12 @@ use std::ffi::c_void;
 
 use crate::vmd::VmdMotionClip;
 
-#[derive(Component)]
-pub struct JoltSoftBody {
-    pub ptr: *mut c_void,
-    pub num_vertices: usize,
-    pub indices: Vec<u32>,
-}
-unsafe impl Send for JoltSoftBody {}
-unsafe impl Sync for JoltSoftBody {}
-
-#[derive(Component)]
-pub struct JoltBody {
-    pub _ptr: *mut c_void,
-    pub size: Vec3,
-}
-// Jolt Body pointers are safe to share across threads after initialization.
-unsafe impl Send for JoltBody {}
-unsafe impl Sync for JoltBody {}
-
 // Global resource holding hair/cloth soft-body state.
 #[derive(Resource)]
 pub struct HairPhysicsData {
     pub ptr: *mut c_void,
-    pub root_pmx_indices: Vec<usize>,
-    pub root_sb_indices: Vec<i32>,
     pub representative_pmx_indices: Vec<usize>, // one canonical PMX index per soft-body vertex, drives physics
-    pub sb_to_pmx_map: Vec<Vec<(usize, bevy::math::Vec3)>>, // all PMX indices per soft-body vertex, drives render sync
+    pub sb_to_pmx_map: Vec<Vec<usize>>, // all PMX indices per soft-body vertex, drives render sync
     pub is_initialized: bool,
 }
 unsafe impl Send for HairPhysicsData {}
@@ -41,7 +21,6 @@ unsafe impl Sync for HairPhysicsData {}
 pub struct SkinVertex {
     pub rest_position: Vec3,
     pub rest_normal: Vec3,
-    pub uv: [f32; 2],
     /// Up to four bone indices; -1 marks an unused slot.
     pub bone_indices: [i32; 4],
     pub bone_weights: [f32; 4],
@@ -55,6 +34,14 @@ pub struct PmxSharedSkin {
     pub skinned_positions: Vec<[f32; 3]>,
     pub skinned_normals: Vec<[f32; 3]>,
 }
+
+#[derive(Component)]
+pub struct PmxBone {
+    pub index: usize,
+}
+
+#[derive(Component)]
+pub struct CpuDeformed;
 
 /// Global vertex slice [vertex_start, vertex_end) this sub-mesh reads from `PmxSharedSkin`.
 #[derive(Component)]
@@ -101,8 +88,6 @@ pub struct PmxBoneData {
     pub rest_position: Vec3,
     /// -1 for root bones.
     pub parent: i32,
-    /// Lower values are evaluated first, ensuring parent-before-child ordering.
-    pub deform_depth: i32,
     /// Appended rotation: (source_bone_index, blend_weight).
     pub append_rotation: Option<(usize, f32)>,
 }
@@ -110,8 +95,10 @@ pub struct PmxBoneData {
 #[derive(Resource)]
 pub struct PmxSkeleton {
     pub bones: Vec<PmxBoneData>,
+    pub order: Vec<usize>,
     pub ik_constraints: Vec<IkConstraint>,
     pub morphs: Vec<PmxMorphData>,
+    pub colliders: Vec<PmxCollider>,
 }
 
 #[derive(Resource)]
@@ -152,4 +139,13 @@ impl bevy::pbr::Material for PmxMaterial {
     fn fragment_shader() -> bevy::shader::ShaderRef {
         "shaders/pmx_material.wgsl".into()
     }
+}
+
+/// Bone-relative collision proxy imported from a static PMX rigid body.
+pub struct PmxCollider {
+    pub bone: usize,
+    pub offset: Vec3,
+    pub rotation: Quat,
+    pub size: Vec3,
+    pub kind: f32,
 }

@@ -106,6 +106,20 @@ pub fn build(b: *std.Build) void {
             "libs/JoltC/JoltPhysicsC.cpp",
             "libs/JoltC/JoltPhysicsC_Extensions.cpp",
             src_dir ++ "/AABBTree/AABBTreeBuilder.cpp",
+            src_dir ++ "/Compute/CPU/ComputeBufferCPU.cpp",
+            src_dir ++ "/Compute/CPU/ComputeQueueCPU.cpp",
+            src_dir ++ "/Compute/CPU/ComputeSystemCPU.cpp",
+            src_dir ++ "/Compute/ComputeSystem.cpp",
+            src_dir ++ "/Compute/DX12/ComputeBufferDX12.cpp",
+            src_dir ++ "/Compute/DX12/ComputeQueueDX12.cpp",
+            src_dir ++ "/Compute/DX12/ComputeSystemDX12.cpp",
+            src_dir ++ "/Compute/DX12/ComputeSystemDX12Impl.cpp",
+            src_dir ++ "/Compute/VK/ComputeBufferVK.cpp",
+            src_dir ++ "/Compute/VK/ComputeQueueVK.cpp",
+            src_dir ++ "/Compute/VK/ComputeShaderVK.cpp",
+            src_dir ++ "/Compute/VK/ComputeSystemVK.cpp",
+            src_dir ++ "/Compute/VK/ComputeSystemVKImpl.cpp",
+            src_dir ++ "/Compute/VK/ComputeSystemVKWithAllocator.cpp",
             src_dir ++ "/Core/Color.cpp",
             src_dir ++ "/Core/Factory.cpp",
             src_dir ++ "/Core/IssueReporting.cpp",
@@ -203,6 +217,10 @@ pub fn build(b: *std.Build) void {
             src_dir ++ "/Physics/Constraints/SwingTwistConstraint.cpp",
             src_dir ++ "/Physics/Constraints/TwoBodyConstraint.cpp",
             src_dir ++ "/Physics/DeterminismLog.cpp",
+            src_dir ++ "/Physics/Hair/Hair.cpp",
+            src_dir ++ "/Physics/Hair/HairSettings.cpp",
+            src_dir ++ "/Physics/Hair/HairShaders.cpp",
+            src_dir ++ "/Physics/Hair/RegisterHair.cpp",
             src_dir ++ "/Physics/IslandBuilder.cpp",
             src_dir ++ "/Physics/LargeIslandSplitter.cpp",
             src_dir ++ "/Physics/PhysicsScene.cpp",
@@ -231,6 +249,7 @@ pub fn build(b: *std.Build) void {
             src_dir ++ "/Renderer/DebugRendererPlayback.cpp",
             src_dir ++ "/Renderer/DebugRendererRecorder.cpp",
             src_dir ++ "/Renderer/DebugRendererSimple.cpp",
+            src_dir ++ "/Shaders/HairWrapper.cpp",
             src_dir ++ "/Skeleton/SkeletalAnimation.cpp",
             src_dir ++ "/Skeleton/Skeleton.cpp",
             src_dir ++ "/Skeleton/SkeletonMapper.cpp",
@@ -249,37 +268,4 @@ pub fn build(b: *std.Build) void {
         });
     }
 
-    const test_step = b.step("test", "Run zphysics tests");
-
-    const tests = b.addTest(.{
-        .name = "zphysics-tests",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/zphysics.zig"),
-            .target = target,
-            .optimize = optimize,
-        }),
-    });
-    b.installArtifact(tests);
-
-    // TODO: Problems with LTO on Windows.
-    if (target.result.os.tag == .windows) {
-        tests.lto = .none;
-    }
-
-    addMacros(tests.root_module, options);
-    tests.root_module.addCSourceFile(.{
-        .file = b.path("libs/JoltC/JoltPhysicsC_Tests.c"),
-        .flags = &.{
-            "-fno-sanitize=undefined",
-        },
-    });
-
-    if (b.option(bool, "verbose", "Print verbose test debug output to stderr") orelse false)
-        tests.root_module.addCMacro("PRINT_OUTPUT", "");
-
-    tests.root_module.addImport("zphysics_options", options_module);
-    tests.root_module.addIncludePath(b.path("libs/JoltC"));
-    tests.root_module.linkLibrary(joltc);
-
-    test_step.dependOn(&b.addRunArtifact(tests).step);
 }

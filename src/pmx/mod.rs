@@ -1,21 +1,17 @@
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use PMXUtil::reader::ModelInfoStage;
 use PMXUtil::types::{MaterialFlags, SphereModeKind, ToonMode};
 
 use bevy::asset::RenderAssetUsages;
+use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy::mesh::Indices;
 use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
 
-use crate::animation::{
-    build_ik_constraints, convert_vertex_weight, format_vertex_weight, group_faces_by_material,
-};
+use crate::animation::{build_ik_constraints, convert_vertex_weight, group_faces_by_material};
 use crate::components::*;
 use crate::config::Config;
 use crate::softbody;
-
-const PMX_LOG_PATH: &str = "src/pmx/pmx_info.txt";
 
 /// Loads a PMX file and builds all ECS resources: materials, meshes, skeleton, skinning data, and soft bodies.
 pub fn init_pmx(
@@ -23,149 +19,68 @@ pub fn init_pmx(
     asset_server: &Res<AssetServer>,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<PmxMaterial>>,
+    inverse_bindposes: &mut ResMut<Assets<SkinnedMeshInverseBindposes>>,
     cfg: &Config,
-) {
+) -> Result<(), String> {
     let pmx_file = &cfg.paths.pmx;
     let pmx_path = if Path::new(pmx_file).is_absolute() {
         pmx_file.to_string()
     } else {
         format!("assets/{}", pmx_file)
     };
-    let loader = ModelInfoStage::open(pmx_path.clone())
-        .unwrap_or_else(|| panic!("Failed to load PMX: {}", pmx_path));
-    let raw_file = std::fs::File::create(PMX_LOG_PATH)
-        .unwrap_or_else(|e| panic!("Cannot create {}: {}", PMX_LOG_PATH, e));
-    let mut pmx_log = std::io::BufWriter::new(raw_file);
-
-    macro_rules! wln {
-        () => { if let Err(e) = writeln!(pmx_log) { eprintln!("[write_pmx_info] write failed: {}", e); } };
-        ($($arg:tt)*) => { if let Err(e) = writeln!(pmx_log, $($arg)*) { eprintln!("[write_pmx_info] write failed: {}", e); } };
+    // PMXUtil exposes a panicking reader; complete parsing before changing ECS state.
+    let parsed = std::panic::catch_unwind(|| {
+        let loader = ModelInfoStage::open(pmx_path.clone())
+            .ok_or_else(|| format!("Cannot open {pmx_path}"))?;
+        let (_, ns) = loader.read();
+        let (vertices, ns) = ns.read();
+        let (faces, ns) = ns.read();
+        let (textures, ns) = ns.read();
+        let (materials, ns) = ns.read();
+        let (bones, ns) = ns.read();
+        let (morphs, ns) = ns.read();
+        let (_, ns) = ns.read();
+        let (rigids, _) = ns.read();
+        Ok::<_, String>((vertices, faces, textures, materials, bones, morphs, rigids))
+    })
+    .map_err(|_| format!("Invalid PMX: {pmx_path}"))??;
+    let (vertices, faces, textures, materials_pmx, bones, morphs, rigids) = parsed;
+    if vertices.is_empty()
+        || faces.iter().any(|f| {
+            f.vertices
+                .iter()
+                .any(|&i| i < 0 || i as usize >= vertices.len())
+        })
+    {
+        return Err("PMX contains empty geometry or invalid vertex indices".into());
     }
 
-    // [1] Header
-    let header = loader.get_header();
-    wln!("═══ [1] Header ═══");
-    wln!(
-        "  version={:?}  encode={:?}  additional_uv={}",
-        header.version,
-        header.encode,
-        header.additional_uv
-    );
-    wln!("{:#?}", header);
-
-    // [2] ModelInfo
-    let (model_info, ns) = loader.read();
-    wln!("\n═══ [2] ModelInfo ═══");
-    wln!("  name={}  name_en={}", model_info.name, model_info.name_en);
-    wln!("  comment:\n{}", model_info.comment);
-
-    // [3] Vertices
-    let (vertices, ns) = ns.read();
-    wln!("\n═══ [3] Vertices ({}) ═══", vertices.len());
-    wln!("  字段: position(绑定姿态世界坐标cm) norm(法线) uv(纹理坐标)");
-    wln!("  蒙皮类型: BDEF1(单骨骼) BDEF2(2骨骼线性) BDEF4(4骨骼线性)");
-    wln!("           SDEF(球面变形) QDEF(双四元数,PMX2.1)");
-    for (i, v) in vertices.iter().take(5).enumerate() {
-        wln!("  [{:>5}] pos=({:.3},{:.3},{:.3}) norm=({:.3},{:.3},{:.3}) uv=({:.3},{:.3}) weight={:?}",
-            i,
-            v.position[0], v.position[1], v.position[2],
-            v.norm[0], v.norm[1], v.norm[2],
-            v.uv[0], v.uv[1],
-            format_vertex_weight(&v.weight_type));
+    if vertices.iter().any(|v| {
+        v.position
+            .iter()
+            .chain(v.norm.iter())
+            .any(|x| !x.is_finite())
+    }) || bones.iter().any(|b| {
+        b.parent < -1 || b.parent >= bones.len() as i32 || b.position.iter().any(|x| !x.is_finite())
+    }) {
+        return Err("PMX contains invalid bone or vertex data".into());
     }
-    wln!("  ... (只显示前5条)");
-
-    // [4] Faces
-    let (faces, ns) = ns.read();
-    wln!("\n═══ [4] Faces ({} 三角形) ═══", faces.len());
-    wln!("  每个Face含3个顶点索引，逆时针为正面");
-    for (i, f) in faces.iter().take(5).enumerate() {
-        wln!(
-            "  [{:>5}] v0={} v1={} v2={}",
-            i,
-            f.vertices[0],
-            f.vertices[1],
-            f.vertices[2]
-        );
+    let mut order = Vec::with_capacity(bones.len());
+    let mut visited = vec![false; bones.len()];
+    let mut candidates: Vec<_> = (0..bones.len()).collect();
+    candidates.sort_by_key(|&i| bones[i].deform_depth);
+    while order.len() < bones.len() {
+        let previous_len = order.len();
+        for &i in &candidates {
+            if !visited[i] && (bones[i].parent < 0 || visited[bones[i].parent as usize]) {
+                visited[i] = true;
+                order.push(i);
+            }
+        }
+        if order.len() == previous_len {
+            return Err("PMX bone hierarchy contains a cycle".into());
+        }
     }
-
-    // [5] Textures
-    let (textures, ns) = ns.read();
-    wln!("\n═══ [5] Textures ({}) ═══", textures.len());
-    wln!("  相对PMX文件目录的路径，\\ 需转为 /");
-    for (i, t) in textures.iter().enumerate() {
-        wln!("  [{:>3}] {}", i, t);
-    }
-
-    // [6] Materials
-    let (materials_pmx, ns) = ns.read();
-    wln!("\n═══ [6] Materials ({}) ═══", materials_pmx.len());
-    wln!("  diffuse:漫反射RGBA  specular:高光RGB×光泽度  ambient:环境光RGB");
-    wln!("  draw_mode:渲染标志  texture_index:纹理索引(-1=无)");
-    wln!("  sphere_mode:球面贴图(Mul/Add/Sub)  toon_mode:卡通贴图");
-    wln!("  num_face_vertices:覆盖的顶点索引数(÷3=三角面数)");
-    for (i, m) in materials_pmx.iter().enumerate() {
-        wln!(
-            "  [{:>3}] 「{}」 diffuse=({:.2},{:.2},{:.2},{:.2}) spec=({:.2},{:.2},{:.2})×{:.1}",
-            i,
-            m.name,
-            m.diffuse[0],
-            m.diffuse[1],
-            m.diffuse[2],
-            m.diffuse[3],
-            m.specular[0],
-            m.specular[1],
-            m.specular[2],
-            m.specular_factor
-        );
-        wln!("       ambient=({:.2},{:.2},{:.2}) edge=({:.2},{:.2},{:.2},{:.2})×{:.2}  tex={}  faces={}",
-            m.ambient[0], m.ambient[1], m.ambient[2],
-            m.edge_color[0], m.edge_color[1], m.edge_color[2], m.edge_color[3], m.edge_size,
-            m.texture_index, m.num_face_vertices / 3);
-        wln!(
-            "       draw_mode={:?}  sphere={:?}  toon={:?}",
-            m.draw_mode,
-            m.sphere_mode,
-            m.toon_mode
-        );
-    }
-
-    // [7] Bones
-    let (bones, ns) = ns.read();
-    let (morphs, _ns) = ns.read();
-    wln!("\n═══ [7] Bones ({}) ═══", bones.len());
-    wln!("  position:绑定姿态世界坐标  parent:父骨骼索引(-1=根)");
-    wln!("  deform_depth:变形优先级(小=先算)  ik_info:IK约束");
-    wln!("  fixed_axis:固定旋转轴  inherits:继承其他骨骼变换比例");
-    for (i, b) in bones.iter().enumerate() {
-        let inherits = format!("{:?}", b.inherits);
-        let ik = if let Some(ik) = &b.ik_info {
-            format!(
-                "IK→{} iter={} limit_angle={:.3}rad links={}",
-                ik.ik_target_bone_index,
-                ik.ik_iter_count,
-                ik.ik_limit_angle,
-                ik.ik_links.len()
-            )
-        } else {
-            "无".to_string()
-        };
-        wln!(
-            "  [{:>3}] 「{}」 pos=({:.3},{:.3},{:.3}) parent={} depth={} IK:{} INHERITS:{}",
-            i,
-            b.name,
-            b.position[0],
-            b.position[1],
-            b.position[2],
-            b.parent,
-            b.deform_depth,
-            ik,
-            inherits
-        );
-    }
-    wln!("\n═══ PMX 写入完毕 ═══");
-    pmx_log.flush().ok();
-    println!("[INFO] PMX info written to {}", PMX_LOG_PATH);
 
     // ═════════════════════════════════════════════════════════════════════════
     // Build global skinning data (PmxSharedSkin).
@@ -179,7 +94,6 @@ pub fn init_pmx(
             SkinVertex {
                 rest_position: Vec3::new(v.position[0], v.position[1], -v.position[2]),
                 rest_normal: Vec3::new(v.norm[0], v.norm[1], -v.norm[2]),
-                uv: v.uv,
                 bone_indices: bi,
                 bone_weights: bw,
             }
@@ -197,19 +111,16 @@ pub fn init_pmx(
         .collect();
 
     commands.insert_resource(PmxSharedSkin {
-        vertices: skin_vertices,
+        vertices: skin_vertices.clone(),
         skinned_positions: init_positions,
         skinned_normals: init_normals,
     });
 
     // ═════════════════════════════════════════════════════════════════════════
     // Build skeleton and IK constraints.
-    let mut name_to_index = std::collections::HashMap::new();
     let bone_data: Vec<PmxBoneData> = bones
         .iter()
-        .enumerate()
-        .map(|(i, b)| {
-            name_to_index.insert(b.name.clone(), i);
+        .map(|b| {
             let append_rotation = match b.inherits.rotate_and_translate {
                 PMXUtil::types::RotateAndTranslateInherits::Rotate(idx, weight) => {
                     if idx >= 0 {
@@ -232,7 +143,6 @@ pub fn init_pmx(
                 name: b.name.clone(),
                 rest_position: Vec3::new(b.position[0], b.position[1], -b.position[2]),
                 parent: b.parent,
-                deform_depth: b.deform_depth,
                 append_rotation,
             }
         })
@@ -257,10 +167,62 @@ pub fn init_pmx(
         }
     }
 
+    let colliders = rigids
+        .iter()
+        .filter_map(|rigid| {
+            if rigid.calc_method != PMXUtil::types::RigidCalcMethod::Static
+                || rigid.bone_index < 0
+                || rigid.bone_index as usize >= bone_data.len()
+            {
+                return None;
+            }
+            let bone = rigid.bone_index as usize;
+            let position = Vec3::new(rigid.position[0], rigid.position[1], -rigid.position[2]);
+            let size = Vec3::from(rigid.size).abs();
+            if !size.is_finite() || !position.is_finite() {
+                return None;
+            }
+            Some(PmxCollider {
+                bone,
+                offset: position - bone_data[bone].rest_position,
+                rotation: Quat::from_euler(
+                    EulerRot::XYZ,
+                    -rigid.rotation[0],
+                    -rigid.rotation[1],
+                    rigid.rotation[2],
+                ),
+                size,
+                kind: match rigid.form {
+                    PMXUtil::types::RigidForm::Sphere => 0.0,
+                    PMXUtil::types::RigidForm::Box => 1.0,
+                    PMXUtil::types::RigidForm::Capsule => 2.0,
+                },
+            })
+        })
+        .collect();
+    let bone_entities: Vec<Entity> = (0..bone_data.len())
+        .map(|index| {
+            commands
+                .spawn((
+                    PmxBone { index },
+                    Transform::default(),
+                    GlobalTransform::default(),
+                ))
+                .id()
+        })
+        .collect();
+    let inverse_bindposes_handle = inverse_bindposes.add(
+        bone_data
+            .iter()
+            .map(|bone| Mat4::from_translation(-bone.rest_position))
+            .collect::<Vec<_>>(),
+    );
     commands.insert_resource(PmxSkeleton {
         bones: bone_data,
+        order,
         ik_constraints,
         morphs: morph_data,
+        colliders,
     });
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -301,7 +263,13 @@ pub fn init_pmx(
             }
             ToonMode::Common(i) => {
                 let name = format!("toon{:02}.bmp", u32::from(i) + 1);
-                Some(asset_server.load(model_dir.join(name)))
+                let asset_path = model_dir.join(name);
+                let disk_path = if asset_path.is_absolute() {
+                    asset_path.clone()
+                } else {
+                    Path::new("assets").join(&asset_path)
+                };
+                disk_path.is_file().then(|| asset_server.load(asset_path))
             }
             _ => None,
         };
@@ -353,7 +321,7 @@ pub fn init_pmx(
             .contains(MaterialFlags::DISABLE_CULLING);
 
         let mut flipped_indices = Vec::with_capacity(face_indices.len());
-        for tri in face_indices.chunks_exact(3) {
+        for tri in face_indices.as_chunks::<3>().0 {
             flipped_indices.push(tri[0]);
             flipped_indices.push(tri[2]);
             flipped_indices.push(tri[1]);
@@ -367,6 +335,10 @@ pub fn init_pmx(
             flipped_indices
         };
 
+        let soft_material = ["发", "髪", "毛", "裙", "衣", "披肩", "摆", "擺", "辫"]
+            .iter()
+            .any(|keyword| materials_pmx[mat_index].name.contains(keyword));
+
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
@@ -374,28 +346,64 @@ pub fn init_pmx(
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, init_positions.clone());
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, init_normals.clone());
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, init_uvs.clone());
+        if !soft_material {
+            mesh.insert_attribute(
+                Mesh::ATTRIBUTE_JOINT_INDEX,
+                bevy::mesh::VertexAttributeValues::Uint16x4(
+                    skin_vertices
+                        .iter()
+                        .map(|v| {
+                            [
+                                v.bone_indices[0].max(0) as u16,
+                                v.bone_indices[1].max(0) as u16,
+                                v.bone_indices[2].max(0) as u16,
+                                v.bone_indices[3].max(0) as u16,
+                            ]
+                        })
+                        .collect::<Vec<_>>(),
+                ),
+            );
+            mesh.insert_attribute(
+                Mesh::ATTRIBUTE_JOINT_WEIGHT,
+                skin_vertices
+                    .iter()
+                    .map(|v| v.bone_weights)
+                    .collect::<Vec<_>>(),
+            );
+        }
         mesh.insert_indices(Indices::U32(final_indices));
 
         let mesh_handle = meshes.add(mesh);
 
-        commands.spawn((
+        let mut entity = commands.spawn((
             Mesh3d(mesh_handle),
             MeshMaterial3d(bevy_materials_list[mat_index].clone()),
             Transform::default(),
+            bevy::camera::visibility::NoFrustumCulling,
             SubMeshInfo {
                 vertex_start: 0,
                 vertex_end: vcount,
             },
         ));
+        if soft_material {
+            entity.insert(CpuDeformed);
+        } else {
+            entity.insert(SkinnedMesh {
+                inverse_bindposes: inverse_bindposes_handle.clone(),
+                joints: bone_entities.clone(),
+            });
+        }
     }
 
+    commands.remove_resource::<HairPhysicsData>();
     // Delegate soft-body creation (hair, skirt) to the softbody module.
     softbody::spawn_hair_from_pmx(
         commands,
         &vertices,
-        &faces,
         &materials_pmx,
         &face_groups,
         &bones,
+        &cfg.softbody,
     );
+    Ok(())
 }

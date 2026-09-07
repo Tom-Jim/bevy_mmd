@@ -1,4 +1,7 @@
+use bevy::core_pipeline::Core3d;
+use bevy::mesh::skinning::SkinnedMeshInverseBindposes;
 use bevy::prelude::*;
+use bevy::render::camera::CameraRenderGraph;
 use bevy_panorbit_camera::PanOrbitCamera;
 
 use crate::components::*;
@@ -9,17 +12,26 @@ pub fn setup(
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PmxMaterial>>,
+    mut inverse_bindposes: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
-    let cfg = Config::load_from_assets();
+    let cfg = Config::load();
     commands.insert_resource(cfg.clone());
 
-    crate::pmx::init_pmx(
+    if let Err(error) = crate::pmx::init_pmx(
         &mut commands,
         &asset_server,
         &mut meshes,
         &mut materials,
+        &mut inverse_bindposes,
         &cfg,
-    );
+    ) {
+        error!("{error}");
+    }
+    commands.insert_resource(VmdPlayback {
+        clip: Default::default(),
+        fps: 30.0,
+        time_sec: 0.0,
+    });
     crate::vmd::init_vmd(&mut commands, &cfg);
     commands.spawn((
         PointLight {
@@ -43,6 +55,7 @@ pub fn setup(
     ));
     commands.spawn((
         Camera3d::default(),
+        CameraRenderGraph::new(Core3d),
         Transform::from_xyz(0.0, 30.0, 50.0).looking_at(Vec3::new(0.0, 50.0, 0.0), Vec3::Y),
         PanOrbitCamera::default(),
     ));
