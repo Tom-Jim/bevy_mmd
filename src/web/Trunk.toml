@@ -1,0 +1,19 @@
+[build]
+target = "index.html"
+dist = "../../target/web-dist"
+
+[serve]
+addresses = ["127.0.0.1"]
+port = 8080
+open = false
+
+[watch]
+watch = [".", "..", "../../Cargo.toml"]
+ignore = ["../../target", "../ui/node_modules", "../desktop"]
+
+# The local model library (assets/, untracked) is served from the dist folder through
+# a link, so the configured default model loads without copying hundreds of megabytes.
+[[hooks]]
+stage = "post_build"
+command = "sh"
+command_arguments = ["-c", "ln -sfn \"$TRUNK_SOURCE_DIR/../../assets\" \"$TRUNK_STAGING_DIR/assets\""]

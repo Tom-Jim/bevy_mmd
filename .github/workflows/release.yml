@@ -2,71 +2,32 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*' # Run when a tag beginning with v is pushed, such as v0.1.0.
+    tags: ["v*"]
 
 jobs:
-  publish:
-    name: Build and Release for ${{ matrix.os }}
+  desktop:
+    name: Bundle for ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        include:
-          - os: ubuntu-latest
-            artifact_name: bevy_mmd_linux
-            asset_name: bevy_mmd_linux.tar.gz
-          - os: windows-latest
-            artifact_name: bevy_mmd.exe
-            asset_name: bevy_mmd_windows.zip
-          - os: macos-latest
-            artifact_name: bevy_mmd
-            asset_name: bevy_mmd_macos.zip
-
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Zig
-        uses: mlugg/setup-zig@v1
-        with:
-          version: 0.16.0
-
-      - name: Install Linux Dependencies
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: oven-sh/setup-bun@v2
+      - name: Linux dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++ pkg-config libx11-dev libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
-
-      # Build the optimized release binary.
-      - name: Build
-        run: cargo build --release --locked
-
-      # Package the binary together with the assets directory.
-      - name: Package Artifacts (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          mkdir staging
-          cp target/release/bevy3Danimation.exe staging/bevy_mmd.exe
-          cp -r assets staging/
-          cp config.toml staging/
-          Compress-Archive -Path staging/* -DestinationPath ${{ matrix.asset_name }}
-
-      - name: Package Artifacts (Linux/macOS)
-        if: runner.os != 'Windows'
-        run: |
-          mkdir staging
-          cp target/release/bevy3Danimation staging/${{ matrix.artifact_name }}
-          cp -r assets staging/
-          cp config.toml staging/
-          tar -czf ${{ matrix.asset_name }} -C staging .
-
-      # Upload the package to the GitHub release.
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v1
+          sudo apt-get install -y g++ pkg-config libx11-dev libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Panels
+        working-directory: src/ui
+        run: bun install
+      # The CLI finds tauri.conf.json in its working directory.
+      - name: Tauri bundle
+        working-directory: src/desktop
+        run: ../ui/node_modules/.bin/tauri build -- --profile dist
+      - uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.asset_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          files: target/dist/bundle/**/*

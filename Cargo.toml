@@ -1,19 +1,122 @@
+[workspace]
+members = [".", "src/desktop"]
+default-members = ["."]
+resolver = "3"
+
 [package]
-name = "bevy3Danimation"
-version = "0.1.0"
-edition = "2021"
+name = "bevy3d_animation"
+version = "0.2.0"
+edition = "2024"
+description = "MMD player: PMX models driven by VMD motion, with Jolt rigid-body hair and cloth"
+build = "src/build.rs"
+autobins = false
+autotests = false
+
+[features]
+default = ["viewer"]
+# The Bevy viewer without a window backend. The desktop shell (src/desktop) owns the
+# window and draws Bevy under its webview; the React panels hold every control.
+viewer = [
+    "dep:bevy",
+    "dep:serde_json",
+    "bevy/std",
+    "bevy/async_executor",
+    "bevy/bevy_asset",
+    "bevy/bevy_log",
+    "bevy/bevy_window",
+    "bevy/bevy_render",
+    "bevy/bevy_core_pipeline",
+    "bevy/bevy_pbr",
+    "bevy/bevy_light",
+    "bevy/bevy_camera",
+    "bevy/bevy_color",
+    "bevy/bevy_image",
+    "bevy/bevy_mesh",
+    "bevy/bevy_shader",
+    "bevy/bevy_material",
+    "bevy/bevy_anti_alias",
+    "bevy/png",
+    "bevy/jpeg",
+    "bevy/tga",
+    "bevy/bmp",
+    "bevy/tonemapping_luts",
+    "bevy/zstd_rust",
+    "bevy/pan_orbit_camera",
+    "bevy/mouse",
+]
+# Native viewer under the Tauri shell.
+desktop = ["viewer", "bevy/multi_threaded"]
+# A plain winit window, for profiling the viewer without the shell.
+standalone = ["desktop", "bevy/bevy_winit"]
+# Browser: winit drives the page canvas, WebGPU.
+web = ["viewer", "bevy/bevy_winit", "bevy/webgpu"]
+
+[build-dependencies]
+cc = { version = "1.6", features = ["parallel"] }
 
 [dependencies]
-bevy = { version = "0.19.1", features = ["jpeg", "png", "tga", "bmp", "hdr"] }
-PMXUtil = "0.9.0"
-bevy_panorbit_camera = "0.35.1"
-vmd_parser = "0.1.0"
-serde = { version = "1.0.229", features = ["derive"] }
-toml = "1.1.5"
+bevy = { version = "0.20.0", optional = true, default-features = false }
+glam = "0.33"
+encoding_rs = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", optional = true }
+toml = "1.1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = ["console", "Window", "Response", "Performance"] }
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+doctest = false
+
+[[bin]]
+name = "viewer"
+path = "src/bin/viewer.rs"
+required-features = ["standalone"]
+test = false
+
+[[test]]
+name = "format"
+path = "tests/format.rs"
+
+[[test]]
+name = "anim"
+path = "tests/anim.rs"
+
+[[test]]
+name = "physics"
+path = "tests/physics.rs"
+
+[[test]]
+name = "assets"
+path = "tests/assets.rs"
+
+[[test]]
+name = "viewer"
+path = "tests/viewer.rs"
+required-features = ["viewer"]
 
 [profile.dev]
 opt-level = 1
 
-[profile.release]
+# Dependencies (Bevy, wgpu) run optimized even in debug builds; the frame budget needs it.
+[profile.dev.package."*"]
 opt-level = 3
+debug = false
+
+[profile.test]
+opt-level = 2
+
+[profile.release]
+lto = "thin"
+
+# Shipped builds: the desktop bundle and the browser wasm.
+[profile.dist]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
 strip = true
+panic = "abort"

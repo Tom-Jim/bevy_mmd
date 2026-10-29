@@ -1,6 +1,18 @@
-# Native physics dependency
+# Vendored dependencies
 
-zphysics is based on upstream commit `9797d7bd08e4341410104876eb1896a71714277d` (latest HEAD checked 2026-09-07), with Jolt upgraded to 5.6.0 (`e77f175595e64cb44218cc9d9d56fc365ad0e36a`).
-Source: https://github.com/zig-gamedev/zphysics
+## Jolt Physics 5.6.0
 
-Local changes: Zig 0.16 allocator synchronization uses `std.atomic.Mutex` with acquire/release semantics; removed unused test targets and test source. Upstream ABI size assertions remain enabled. Do not disable allocation locking: Jolt worker threads share the allocation map.
+`jolt/Jolt` is Jolt Physics 5.6.0 (`e77f175595e64cb44218cc9d9d56fc365ad0e36a`,
+https://github.com/jrouwe/JoltPhysics), MIT licensed (`jolt/LICENSE`). `src/build.rs`
+compiles it with the `cc` crate together with the MMD bridge in `src/physics/cpp`.
+
+Local changes, for the browser build (`wasm32-wasip1` objects linked into the
+`wasm32-unknown-unknown` module):
+
+- `Core/Core.h`: `__wasm__` selects Jolt's existing WASM platform path, which upstream
+  enables only for Emscripten.
+- `Core/Semaphore.{h,cpp}`: without Emscripten pthreads the semaphore is the atomic
+  counter alone. The viewer runs Jolt with `JobSystemSingleThreaded`, so nothing waits.
+
+Directories the build skips: `Compute/{CPU,DX12,MTL,VK}`, `Renderer`, `Shaders`,
+`Physics/Hair` (GPU back ends, debug drawing and GPU hair).

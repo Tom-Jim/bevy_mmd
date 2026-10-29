@@ -1,0 +1,29 @@
+[package]
+name = "bevy3d-animation-desktop"
+version = "0.2.0"
+edition = "2024"
+description = "Desktop shell: Bevy renders the MMD player natively under a React control layer"
+
+[[bin]]
+name = "bevy3d-animation"
+path = "src/main.rs"
+
+[features]
+# Serve the built panels (src/ui/dist) from the binary. `tauri dev` turns it off to use
+# the Vite dev server instead.
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+bevy3d_animation = { path = "../..", default-features = false, features = ["desktop"] }
+bevy = { version = "0.20.0", default-features = false }
+serde_json = "1.0"
+tauri = { version = "2", features = ["macos-private-api"] }
+raw-window-handle = "0.6"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSResponder", "NSView", "NSGraphics"] }

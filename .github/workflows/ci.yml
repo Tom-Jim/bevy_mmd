@@ -1,41 +1,57 @@
-name: Cross-Platform Build Test
+name: CI
 
 on:
-    workflow_dispatch:
-    push:
-        branches: ["main"]
-    pull_request:
-        branches: ["main"]
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
 
 jobs:
-    build:
-        name: Build on ${{ matrix.os }}
-        runs-on: ${{ matrix.os }}
-        strategy:
-            # Keep other platform jobs running when one platform fails.
-            fail-fast: false
-            matrix:
-                os: [ubuntu-latest, macos-latest]
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ pkg-config libx11-dev libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+      # The model library is not in the repository: the asset tests skip themselves.
+      - name: Core tests (parsers, animation, Jolt)
+        run: cargo test --release --no-default-features
+      - name: Viewer tests
+        run: cargo test --release --features desktop --test viewer
+      - uses: oven-sh/setup-bun@v2
+      - name: Panels
+        working-directory: src/ui
+        run: bun install && bun run build
+      - name: Desktop shell
+        run: cargo build --release -p bevy3d-animation-desktop
 
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
-
-            - name: Install Rust toolchain
-              uses: dtolnay/rust-toolchain@stable
-
-            # Install the pinned Zig version required by the native build.
-            - name: Install Zig
-              uses: mlugg/setup-zig@v2
-              with:
-                  version: 0.16.0
-
-            # Bevy requires system audio and graphics libraries on Linux.
-            - name: Install Linux Dependencies
-              if: runner.os == 'Linux'
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y g++ pkg-config libx11-dev libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev libc++-dev libc++abi-dev
-            # Compile the project without launching the application.
-            - name: Build and Check
-              run: cargo build --release --locked
+  web:
+    name: Browser build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: oven-sh/setup-bun@v2
+      - name: WASI sysroot and Trunk
+        run: |
+          brew install llvm wasi-libc wasi-runtimes binaryen
+          cargo install trunk --locked
+      - name: Panels
+        working-directory: src/ui
+        run: bun install && bun run build
+      - name: Trunk
+        working-directory: src/web
+        run: trunk build --release

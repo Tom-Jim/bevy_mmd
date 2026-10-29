@@ -1,0 +1,42 @@
+# Viewer defaults. Paths are relative to the asset root: `assets/` of the source tree
+# on the desktop, the page's `assets/` in the browser. Missing files leave an empty
+# stage that waits for a dropped model and motion.
+
+[scene]
+model = "模型/星穹铁道—知更鸟·晴歌_by_崩坏：星穹铁道_7add4ed08c748c72b54fc18b0918572f/星穹铁道—知更鸟·晴歌.pmx"
+motion = "VMD/贝洛伯格第三节.vmd"
+
+[playback]
+speed = 1.0
+looping = true
+
+[render]
+# MikuMikuDance's default light: direction it shines in, and its colour.
+light_direction = [-0.5, -1.0, -0.5]
+light_color = [0.6, 0.6, 0.6]
+background = [0.09, 0.1, 0.12]
+outline = true
+# Edge width multiplier on top of each material's edge size (pixels).
+outline_scale = 1.0
+msaa = 4
+
+[physics]
+# Model units per second² (MikuMikuDance: 1 unit = 8 cm, gravity 9.8 × 10).
+gravity = 98.0
+max_substep = 0.008333
+max_substeps = 6
+max_frame = 0.25
+collision_steps = 1
+velocity_steps = 10
+position_steps = 4
+spring_damping_ratio = 0.25
+spring_scale = 1.0
+extra_damping = 0.0
+rest_overlaps = "ignore_all"
+
+[jiggle]
+# Inertial chest and hip motion: a damped spring per soft-tissue bone.
+enabled = true
+strength = 1.0
+chest = { frequency = 4.2, damping = 0.22, stiffness = [1.6, 1.0, 2.2], max_offset = 0.012 }
+hips = { frequency = 3.4, damping = 0.3, stiffness = [1.4, 1.0, 2.0], max_offset = 0.009 }
